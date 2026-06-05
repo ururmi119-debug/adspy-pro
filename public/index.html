@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AdSpy Pro v5.1.7</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#13131f;font-family:'Segoe UI',sans-serif;color:#e0e0e0;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;gap:6px;padding:8px 14px;background:#0e0e1a;border-bottom:1px solid #252538;flex-shrink:0;flex-wrap:wrap}
+.tb-logo{display:flex;align-items:center;gap:6px;margin-right:6px}
+.tb-logo .name{font-size:13px;font-weight:700;color:#fff}
+.tb-logo .ver{font-size:9px;color:#44445a;margin-left:2px}
+.tb-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #252538;background:#181826;color:#9090b0;transition:all .15s;white-space:nowrap;user-select:none}
+.tb-btn:hover{background:#222236;color:#ccc}
+.tb-btn.active-btn{background:#1a2a4a;border-color:#2a4a80;color:#6699ff}
+.tb-btn.count-btn{background:#1e1a08;border-color:#4a3a00;color:#ffbb33;font-weight:700}
+.tb-btn.auto-btn{background:#0a1a40;border-color:#1a3a80;color:#4488ff}
+.tb-bolt{width:28px;height:28px;border-radius:50%;background:#181826;border:1px solid #252538;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:#ffcc44}
+.tb-trash{width:28px;height:28px;border-radius:50%;background:#181826;border:1px solid #252538;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:#555}
+.tb-trash:hover{color:#ff5555;border-color:#552222}
+.api-status-row{display:flex;align-items:center;gap:6px;margin-left:auto}
+.api-dot{width:7px;height:7px;border-radius:50%;background:#333}
+.api-dot.ok{background:#33cc66;box-shadow:0 0 6px #33cc66}
+.api-dot.err{background:#ff4444;box-shadow:0 0 6px #ff4444}
+.api-txt{font-size:10px;color:#445}
+
+/* FILTER ROW */
+.filter-row{display:flex;align-items:center;gap:5px;padding:7px 14px;background:#0e0e1a;border-bottom:1px solid #1e1e30;flex-shrink:0;overflow-x:auto}
+.filter-row::-webkit-scrollbar{height:0}
+.fr-tag{padding:4px 11px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #1e1e30;color:#555;background:transparent;white-space:nowrap;transition:all .12s;user-select:none}
+.fr-tag:hover{border-color:#333;color:#999}
+.fr-tag.on{border-color:#3a3a60;background:#1e1e38;color:#fff}
+.fr-sep{width:1px;height:18px;background:#252538;flex-shrink:0;margin:0 3px}
+.fr-label{font-size:10px;color:#333;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+/* Phase colors */
+.hot-tag.on{background:#2a0a0a;border-color:#6a2020;color:#ff6666}
+.cashcow-tag.on{background:#1e1200;border-color:#5a3800;color:#ffaa33}
+.scaling-tag.on{background:#081420;border-color:#1a3a5a;color:#4499ff}
+.winning-tag.on{background:#081a0a;border-color:#1a4a20;color:#44cc77}
+.validating-tag.on{background:#120a22;border-color:#3a1a5a;color:#aa66ff}
+.testing-tag.on{background:#181818;border-color:#383838;color:#888}
+.shopify-tag.on{background:#081808;border-color:#205a20;color:#44cc44}
+.pod-tag.on{background:#081428;border-color:#1a3a6a;color:#4488ff}
+.drop-tag.on{background:#1e0e04;border-color:#5a2810;color:#ff7733}
+.jwl-tag.on{background:#160820;border-color:#4a1a60;color:#cc55ff}
+.digi-tag.on{background:#061408;border-color:#1a4a20;color:#44bb44}
+.amz-tag.on{background:#1a1000;border-color:#4a3000;color:#ffaa22}
+.sub-tag.on{background:#160816;border-color:#4a1a44;color:#dd55cc}
+
+/* LAYOUT */
+.body-wrap{display:flex;flex:1;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{width:195px;background:#0c0c18;border-right:1px solid #1e1e30;display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:#2a2a3e;border-radius:2px}
+.sb-logo{display:flex;align-items:center;gap:8px;padding:14px 14px 12px;border-bottom:1px solid #1a1a28}
+.sb-logo .lname{font-size:13px;font-weight:700;color:#fff}
+.sb-sec{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#333;padding:12px 14px 5px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:500;color:#505068;transition:all .12s;user-select:none}
+.sb-item:hover{background:#141428;color:#aaa}
+.sb-item.on{background:#1a1a2e;color:#ddd}
+.sb-item .ico{font-size:13px;width:16px;text-align:center;flex-shrink:0}
+.sb-cnt{margin-left:auto;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:#181828;color:#445}
+.sb-item.on .sb-cnt{background:#222238}
+/* Count colors */
+.c-hot{background:#2a0a0a!important;color:#ff5555!important}
+.c-cashcow{background:#1e1200!important;color:#ffaa33!important}
+.c-scaling{background:#081420!important;color:#4488ff!important}
+.c-winning{background:#081a0a!important;color:#33cc66!important}
+.c-validating{background:#120a22!important;color:#aa66ff!important}
+.c-testing{background:#181818!important;color:#666!important}
+.c-pod{background:#081420!important;color:#4488ff!important}
+.c-drop{background:#1e0e04!important;color:#ff7733!important}
+.c-jwl{background:#160820!important;color:#cc55ff!important}
+
+/* SCAN PANEL */
+.scan-panel{display:none;padding:12px 14px;background:#080812;border-bottom:1px solid #1a1a2a}
+.scan-panel.show{display:block}
+.sp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px}
+.sp-field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px}
+.sp-label{font-size:10px;color:#445;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.sp-input{background:#0e0e1e;border:1px solid #252538;border-radius:6px;padding:7px 10px;color:#ddd;font-size:11px;outline:none;width:100%;transition:border-color .15s}
+.sp-input:focus{border-color:#3366aa}
+.sp-input::placeholder{color:#333}
+.sp-btn{padding:7px 16px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:none;font-family:'Segoe UI',sans-serif;transition:all .15s;white-space:nowrap}
+.sp-fetch{background:#1a3a7a;color:#88bbff}
+.sp-fetch:hover{background:#2a4a8a}
+.sp-demo{background:#1e1e30;color:#778;border:1px solid #252538}
+.sp-demo:hover{background:#252540;color:#aaa}
+.sp-guide{background:#080e1a;border:1px solid #1a2a3a;border-radius:6px;padding:8px 10px;font-size:10px;color:#3a5a7a;line-height:1.7}
+.sp-guide strong{color:#4477aa}
+.sp-guide a{color:#4488cc;text-decoration:none}
+
+/* MAIN */
+.main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* STATS */
+.stats-row{display:flex;border-bottom:1px solid #1a1a2a;flex-shrink:0}
+.stat-item{flex:1;padding:9px 14px;background:#0e0e1a;border-right:1px solid #1a1a2a}
+.stat-item:last-child{border-right:none}
+.stat-val{font-size:18px;font-weight:700;color:#ddd}
+.stat-lbl{font-size:10px;color:#445;margin-top:1px}
+.s-active .stat-val{color:#33cc66}
+.s-hot .stat-val{color:#ff5555}
+.s-pod .stat-val{color:#4488ff}
+.s-win .stat-val{color:#44bb44}
+
+/* ADS */
+.ads-wrap{flex:1;overflow-y:auto;padding:12px}
+.ads-wrap::-webkit-scrollbar{width:4px}
+.ads-wrap::-webkit-scrollbar-thumb{background:#222236;border-radius:2px}
+.ads-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.ads-grid.large{grid-template-columns:repeat(auto-fill,minmax(310px,1fr))}
+
+/* AD CARD */
+.ad-card{background:#0e0e1e;border:1px solid #1e1e30;border-radius:10px;overflow:hidden;cursor:pointer;transition:all .18s}
+.ad-card:hover{border-color:#2e2e50;transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.ad-img{height:130px;background:#141428;display:flex;align-items:center;justify-content:center;position:relative;font-size:26px;color:#252538}
+.phase-badge{position:absolute;top:8px;left:8px;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.model-badge{position:absolute;top:8px;right:8px;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;text-transform:uppercase;background:rgba(0,0,0,.7);color:#888;border:1px solid #252538}
+.score-bar{position:absolute;bottom:0;left:0;height:2px;background:linear-gradient(90deg,#1a3a8a,#33aaff);transition:width .3s}
+.ad-body{padding:10px 12px}
+.ad-page{font-size:12px;font-weight:600;color:#ccc;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-text{font-size:11px;color:#4a5060;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:8px}
+.ad-chips{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px}
+.chip{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600;border:1px solid #1e1e30;color:#446}
+.chip.active{color:#33cc66;border-color:#1a3a22;background:#081408}
+.chip.inactive{color:#cc3333;border-color:#3a1818;background:#140808}
+.chip.shopify{color:#33cc44;border-color:#1a4422;background:#081208}
+.ad-foot{display:flex;align-items:center;justify-content:space-between;padding-top:7px;border-top:1px solid #141422}
+.ad-days{font-size:10px;color:#445}
+.ad-days strong{color:#4488ff}
+.ad-acts{display:flex;gap:3px}
+.act-btn{width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;background:#141428;border:1px solid #1e1e30;color:#445;font-size:11px;transition:all .12s}
+.act-btn:hover{color:#6699ff;border-color:#2a3a6a}
+
+/* EMPTY STATE */
+.empty-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:40px;text-align:center;gap:14px}
+.empty-ico{width:56px;height:56px;background:#141428;border:1px solid #1e1e30;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px}
+.empty-wrap h3{font-size:15px;font-weight:600;color:#aaa}
+.empty-wrap p{font-size:12px;color:#445;max-width:300px;line-height:1.7}
+.empty-wrap strong{color:#888}
+
+/* BOTTOM BAR */
+.bottom-bar{display:none;align-items:center;gap:6px;padding:8px 14px;background:#0a0a14;border-top:1px solid #1a1a28;flex-shrink:0}
+.bottom-bar.show{display:flex}
+.exp-btn{padding:5px 12px;border-radius:14px;border:1px solid #1e1e30;font-size:10px;font-weight:600;cursor:pointer;background:transparent;color:#556;transition:all .12s}
+.exp-btn:hover{border-color:#2a2a48;color:#aaa}
+.clr-btn{padding:5px 12px;border-radius:14px;border:1px solid #3a1010;font-size:10px;font-weight:600;cursor:pointer;background:#160808;color:#cc3333;margin-left:auto}
+.exp-cnt{font-size:10px;color:#334;margin-left:4px}
+
+/* DETAIL MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(5,5,12,.88);z-index:100;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal-box{background:#0e0e1e;border:1px solid #252540;border-radius:14px;width:100%;max-width:460px;max-height:82vh;overflow-y:auto}
+.modal-box::-webkit-scrollbar{width:3px}
+.modal-box::-webkit-scrollbar-thumb{background:#252538;border-radius:2px}
+.m-hdr{padding:14px 18px;border-bottom:1px solid #181828;display:flex;align-items:center;justify-content:space-between}
+.m-hdr h3{font-size:13px;font-weight:600;color:#ddd}
+.m-cls{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#141428;border:1px solid #1e1e30;cursor:pointer;color:#556;font-size:13px}
+.m-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 18px;border-bottom:1px solid #121220;gap:12px}
+.m-row:last-child{border-bottom:none}
+.m-key{font-size:10px;font-weight:700;color:#334;text-transform:uppercase;letter-spacing:.07em;flex-shrink:0;font-family:monospace}
+.m-val{font-size:11px;color:#bbb;text-align:right;word-break:break-all;line-height:1.5}
+.m-val a{color:#4488cc;text-decoration:none}
+
+/* LOADING MODAL */
+.load-bg{display:none;position:fixed;inset:0;background:rgba(5,5,12,.86);z-index:200;align-items:center;justify-content:center}
+.load-bg.show{display:flex}
+.load-box{background:#0e0e1e;border:1px solid #252540;border-radius:16px;padding:38px 50px;display:flex;flex-direction:column;align-items:center;gap:16px;min-width:280px}
+.load-logo{font-size:20px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+.load-spin{width:38px;height:38px;border:3px solid #1e1e30;border-top-color:#ffcc33;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-main{font-size:13px;font-weight:600;color:#ccc}
+.load-sub{font-size:11px;color:#445}
+
+/* TOAST */
+.toast{position:fixed;bottom:16px;right:16px;background:#0e0e1e;border:1px solid #252538;border-radius:10px;padding:10px 16px;font-size:12px;font-weight:500;color:#ccc;z-index:300;opacity:0;transform:translateY(16px);transition:all .25s;max-width:260px;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{border-color:#1a4422;color:#44cc66}
+.toast.err{border-color:#4a1a1a;color:#ff5555}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="load-bg" id="loadBg">
+  <div class="load-box">
+    <div class="load-logo">🔍 AdSpy Pro</div>
+    <div class="load-spin"></div>
+    <div class="load-main" id="loadMain">Applying large creative...</div>
+    <div class="load-sub" id="loadSub">Laying out ad cards</div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-bg" id="modalBg" onclick="closeMod(event)">
+  <div class="modal-box">
+    <div class="m-hdr">
+      <h3 id="modTitle">Ad Details</h3>
+      <div class="m-cls" onclick="document.getElementById('modalBg').classList.remove('show')">✕</div>
+    </div>
+    <div id="modBody"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-logo">
+    <span>🔍</span>
+    <span class="name">AdSpy Pro</span>
+    <span class="ver">v5.1.7</span>
+    <span style="color:#252538;margin:0 4px">—</span>
+  </div>
+  <div class="tb-btn" onclick="toggleScan()">↻ Scan</div>
+  <div class="tb-btn" onclick="toggleScan()">⚡ Filter ✓</div>
+  <div class="tb-btn">🎯 Compete</div>
+  <div class="tb-btn count-btn">⭐ <span id="totalCount">0</span></div>
+  <div class="tb-btn active-btn" id="lgBtn" onclick="toggleLarge()">■ Large</div>
+  <div class="tb-btn" onclick="exportCSV()">↑ Export</div>
+  <div class="tb-btn" style="color:#ff9933;border-color:#3a2a10;background:#181008">🖼 Gallery</div>
+  <div class="tb-btn">▶ Live</div>
+  <div class="tb-btn auto-btn">⬛ Auto</div>
+  <div class="tb-bolt">⚡</div>
+  <div class="tb-trash" onclick="clearAll()">🗑</div>
+  <div class="api-status-row">
+    <div class="api-dot" id="apiDot"></div>
+    <span class="api-txt" id="apiTxt">Not connected</span>
+  </div>
+</div>
+
+<!-- SCAN PANEL -->
+<div class="scan-panel" id="scanPanel">
+  <div class="sp-row">
+    <div class="sp-field" style="flex:1.5">
+      <span class="sp-label">Access Token</span>
+      <input type="password" class="sp-input" id="tok" placeholder="EAABsbCS...your token">
+    </div>
+    <div class="sp-field" style="flex:2">
+      <span class="sp-label">Search Query</span>
+      <input type="text" class="sp-input" id="qry" placeholder="Islamic t-shirt, POD hoodie...">
+    </div>
+    <div class="sp-field" style="min-width:90px;flex:0.7">
+      <span class="sp-label">Country</span>
+      <select class="sp-input" id="ctr">
+        <option value="US">🇺🇸 US</option>
+        <option value="GB">🇬🇧 UK</option>
+        <option value="AU">🇦🇺 AU</option>
+        <option value="CA">🇨🇦 CA</option>
+        <option value="DE">🇩🇪 DE</option>
+      </select>
+    </div>
+    <div class="sp-field" style="min-width:70px;flex:0.5">
+      <span class="sp-label">Limit</span>
+      <select class="sp-input" id="lim">
+        <option value="25">25</option>
+        <option value="50" selected>50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:6px;align-items:flex-end;flex-shrink:0">
+      <button class="sp-btn sp-fetch" onclick="fetchAds()">🔍 Fetch Ads</button>
+      <button class="sp-btn sp-demo" onclick="loadDemo()">Demo</button>
+    </div>
+  </div>
+  <div class="sp-guide">
+    <strong>Get Free Token:</strong>
+    1. Go to <a href="https://developers.facebook.com/tools/explorer/" target="_blank">developers.facebook.com/tools/explorer</a>
+    &nbsp;→&nbsp; 2. Add <strong>ads_read</strong> permission &nbsp;→&nbsp;
+    3. Click "Generate Access Token" &nbsp;→&nbsp; 4. Paste above
+  </div>
+</div>
+
+<!-- FILTER ROW -->
+<div class="filter-row">
+  <div class="fr-tag on" data-q="all" onclick="tQF(this)">All</div>
+  <div class="fr-tag testing-tag" data-q="testing" onclick="tQF(this)">🧪 Testing</div>
+  <div class="fr-tag validating-tag" data-q="validating" onclick="tQF(this)">🔬 Validating</div>
+  <div class="fr-tag winning-tag" data-q="winning" onclick="tQF(this)">✅ Winning</div>
+  <div class="fr-tag scaling-tag" data-q="scaling" onclick="tQF(this)">🚀 Scaling</div>
+  <div class="fr-tag cashcow-tag" data-q="cashcow" onclick="tQF(this)">💰 Cash Cow</div>
+  <div class="fr-tag shopify-tag" data-q="shopify" onclick="tQF(this)">🛒 Shopify</div>
+  <div class="fr-tag hot-tag" data-q="hot" onclick="tQF(this)">🔥 HOT</div>
+  <div class="fr-sep"></div>
+  <span class="fr-label">Model:</span>
+  <div class="fr-tag drop-tag" data-q="dropship" onclick="tQF(this)">🚚 Dropship</div>
+  <div class="fr-tag pod-tag" data-q="pod" onclick="tQF(this)">🎁 POD</div>
+  <div class="fr-tag jwl-tag" data-q="jewelry" onclick="tQF(this)">💎 Jewelry</div>
+  <div class="fr-tag digi-tag" data-q="digital" onclick="tQF(this)">⚡ Digital</div>
+  <div class="fr-tag amz-tag" data-q="amazon" onclick="tQF(this)">📦 Amazon</div>
+  <div class="fr-tag sub-tag" data-q="subbox" onclick="tQF(this)">📬 Sub Box</div>
+</div>
+
+<!-- BODY -->
+<div class="body-wrap">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-logo"><span>🔍</span><span class="lname">AdSpy Pro</span></div>
+
+    <div class="sb-sec">Phase</div>
+    <div class="sb-item on" data-p="All" onclick="fPhase(this)"><span class="ico">📊</span>All Phases<span class="sb-cnt" id="cp-All">0</span></div>
+    <div class="sb-item" data-p="HOT" onclick="fPhase(this)"><span class="ico">🔥</span>HOT<span class="sb-cnt c-hot" id="cp-HOT">0</span></div>
+    <div class="sb-item" data-p="Cash Cow" onclick="fPhase(this)"><span class="ico">💰</span>Cash Cow<span class="sb-cnt c-cashcow" id="cp-CashCow">0</span></div>
+    <div class="sb-item" data-p="Scaling" onclick="fPhase(this)"><span class="ico">🚀</span>Scaling<span class="sb-cnt c-scaling" id="cp-Scaling">0</span></div>
+    <div class="sb-item" data-p="Winning" onclick="fPhase(this)"><span class="ico">✅</span>Winning<span class="sb-cnt c-winning" id="cp-Winning">0</span></div>
+    <div class="sb-item" data-p="Validating" onclick="fPhase(this)"><span class="ico">🔬</span>Validating<span class="sb-cnt c-validating" id="cp-Validating">0</span></div>
+    <div class="sb-item" data-p="Testing" onclick="fPhase(this)"><span class="ico">🧪</span>Testing<span class="sb-cnt c-testing" id="cp-Testing">0</span></div>
+
+    <div class="sb-sec">Model</div>
+    <div class="sb-item on" data-m="All" onclick="fModel(this)"><span class="ico">📦</span>All Models<span class="sb-cnt" id="cm-All">0</span></div>
+    <div class="sb-item" data-m="POD" onclick="fModel(this)"><span class="ico">🎁</span>POD<span class="sb-cnt c-pod" id="cm-POD">0</span></div>
+    <div class="sb-item" data-m="Dropship" onclick="fModel(this)"><span class="ico">🚚</span>Dropship<span class="sb-cnt c-drop" id="cm-Dropship">0</span></div>
+    <div class="sb-item" data-m="Jewelry" onclick="fModel(this)"><span class="ico">💎</span>Jewelry<span class="sb-cnt c-jwl" id="cm-Jewelry">0</span></div>
+    <div class="sb-item" data-m="Digital" onclick="fModel(this)"><span class="ico">⚡</span>Digital<span class="sb-cnt" id="cm-Digital">0</span></div>
+    <div class="sb-item" data-m="Amazon" onclick="fModel(this)"><span class="ico">📦</span>Amazon<span class="sb-cnt c-cashcow" id="cm-Amazon">0</span></div>
+    <div class="sb-item" data-m="Sub Box" onclick="fModel(this)"><span class="ico">📬</span>Sub Box<span class="sb-cnt c-jwl" id="cm-SubBox">0</span></div>
+
+    <div class="sb-sec">Folders</div>
+    <div class="sb-item"><span class="ico">📁</span>Saved Ads<span class="sb-cnt">0</span></div>
+    <div class="sb-item"><span class="ico">⭐</span>Favorites<span class="sb-cnt">0</span></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-wrap">
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-item"><div class="stat-val" id="sTotal">0</div><div class="stat-lbl">Total Ads</div></div>
+      <div class="stat-item s-active"><div class="stat-val" id="sActive">0</div><div class="stat-lbl">Active</div></div>
+      <div class="stat-item s-hot"><div class="stat-val" id="sHot">0</div><div class="stat-lbl">🔥 HOT</div></div>
+      <div class="stat-item s-pod"><div class="stat-val" id="sPOD">0</div><div class="stat-lbl">POD</div></div>
+      <div class="stat-item s-win"><div class="stat-val" id="sWin">0</div><div class="stat-lbl">Winning+</div></div>
+    </div>
+
+    <!-- ADS -->
+    <div class="ads-wrap" id="adsWrap">
+      <div class="empty-wrap" id="emptyWrap">
+        <div class="empty-ico">🔍</div>
+        <h3>AdSpy Pro Ready</h3>
+        <p>Click <strong>Scan</strong> to enter your Meta API token and fetch real ads.<br>Or click <strong>Demo</strong> to load sample data.</p>
+      </div>
+    </div>
+
+    <!-- BOTTOM -->
+    <div class="bottom-bar" id="bottomBar">
+      <span style="font-size:11px;color:#445">Export:</span>
+      <div class="exp-btn" onclick="exportCSV()">📊 CSV</div>
+      <div class="exp-btn" onclick="exportJSON()">{ } JSON</div>
+      <span class="exp-cnt" id="expCnt">0 ads collected</span>
+      <div class="clr-btn" onclick="clearAll()">🗑 Clear All</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+let ads = [], pF = 'All', mF = 'All', qFs = new Set(), isLarge = true, scanOpen = false;
+
+// Auto-detect backend URL
+const API = window.location.origin;
+
+const PHASE_STYLE = {
+  'HOT':       { bg: '#3a0a0a', col: '#ff6666' },
+  'Cash Cow':  { bg: '#2a1800', col: '#ffaa33' },
+  'Scaling':   { bg: '#08182a', col: '#4499ff' },
+  'Winning':   { bg: '#08200e', col: '#33cc66' },
+  'Validating':{ bg: '#180a28', col: '#aa66ff' },
+  'Testing':   { bg: '#181818', col: '#777' }
+};
+
+// ── FETCH FROM BACKEND ─────────────────────────────────────────────────────
+async function fetchAds() {
+  const tok = document.getElementById('tok').value.trim();
+  const q   = document.getElementById('qry').value.trim();
+  if (!tok) { toast('Access Token দাও!', 'err'); return; }
+  if (!q)   { toast('Search query দাও!', 'err'); return; }
+
+  const country = document.getElementById('ctr').value;
+  const limit   = document.getElementById('lim').value;
+
+  showLoad('Connecting to Meta Ad Library...', 'Verifying token...');
+
+  try {
+    // First verify token
+    const vr = await fetch(`${API}/api/verify-token?access_token=${encodeURIComponent(tok)}`);
+    const vd = await vr.json();
+    if (!vd.valid) throw new Error('Invalid token: ' + (vd.error || 'Check your token'));
+
+    updateLoad(`Fetching ads for "${q}"...`, 'Scanning Meta Ad Library...');
+
+    const url = `${API}/api/ads?` + new URLSearchParams({
+      access_token: tok, search_terms: q,
+      country, limit
+    });
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+
+    const newAds = dedup(d.ads || []);
+    ads = [...ads, ...newAds];
+
+    updateLoad(`Processing ${ads.length} ads...`, 'Applying phase & model detection...');
+    await sleep(500);
+
+    hideLoad();
+    updateAll();
+    setApiSt('ok', `Connected · ${ads.length} ads`);
+    toast(`✅ ${d.ads.length} ads fetched!`, 'ok');
+    document.getElementById('scanPanel').classList.remove('show');
+    scanOpen = false;
+
+  } catch (e) {
+    hideLoad();
+    setApiSt('err', 'Error');
+    toast('❌ ' + e.message.slice(0, 80), 'err');
+  }
+}
+
+function dedup(n) {
+  const ex = new Set(ads.map(a => a.id));
+  return n.filter(a => !ex.has(a.id));
+}
+
+// ── DEMO DATA ─────────────────────────────────────────────────────────────
+function loadDemo() {
+  showLoad('Applying large creative...', 'Laying out ad cards');
+  setTimeout(() => {
+    ads = [
+      mk('IslamicTeesCo','Premium Islamic quote t-shirts. Custom prints with beautiful calligraphy. Free shipping over $35!','islamictees.myshopify.com',72,true,true,'Image'),
+      mk('MotivateWear','Wear your motivation! 100% cotton hoodies with powerful quotes. Limited edition drops every week.','motivatewear.com',45,true,true,'Video'),
+      mk('TeacherGiftShop','The perfect gift for your favorite teacher! Custom mugs, totes & t-shirts. Personalize today!','teachergifts.myshopify.com',28,true,true,'Carousel'),
+      mk('NurseLifeStore','For nurses who love what they do. Exclusive nurse appreciation collection. Ships in 3 days.','nurselife.com/shop',18,true,false,'Image'),
+      mk('SilverMoonJewelry','Handcrafted silver necklaces & rings. Each piece tells a story. Free engraving on all orders!','silvermoon.myshopify.com',95,false,true,'Image'),
+      mk('QuranVersePrints','Beautiful Quran verse wall art for your home. Premium quality canvas prints. Worldwide shipping.','quranprints.com',60,true,false,'Image'),
+      mk('DigitalTemplatesPro','500+ Canva templates for social media. One-time purchase, lifetime access. Download instantly!','digitaltemplates.gumroad.com',12,true,false,'Video'),
+      mk('CrystalDropShip','Healing crystals & gemstones delivered to your door. 100% authentic, ethically sourced.','crystalstore.myshopify.com',8,true,true,'Carousel'),
+      mk('MindfulMugs','Start your morning right with a motivational mug. Ceramic, dishwasher safe, ships in 2 days.','mindfulmugs.myshopify.com',35,true,true,'Image'),
+      mk('HijabFashionStore','Modern hijab styles for the contemporary Muslim woman. Breathable fabric, vibrant new colors!','hijabfashion.com/new',50,true,false,'Carousel'),
+      mk('SnackBoxMonthly','Discover new snacks every month! Curated international snack boxes. First box 50% off!','snackboxmonthly.com/subscribe',42,true,false,'Video'),
+      mk('AmazonFindsUS','Top-rated Amazon products you need. Prime shipping, best deals every day!','amazon.com/shop/finds',5,true,false,'Video'),
+    ];
+    hideLoad();
+    updateAll();
+    setApiSt('ok', `Demo · ${ads.length} ads`);
+    toast(`${ads.length} demo ads loaded!`, 'ok');
+  }, 1800);
+}
+
+function mk(page, text, url, days, isActive, isShopify, type) {
+  const phase = days>=60&&isActive?'HOT':days>=30&&isActive?'Scaling':days>=14&&isActive?'Winning':days>=7?'Validating':'Testing';
+  if(!isActive&&days>90) phase='Cash Cow';
+  const t=(text+' '+page+' '+url).toLowerCase();
+  const sc={POD:['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','tshirt','hoodie','mug','poster','shirt','hijab','quran'],Dropship:['free shipping','order now','limited stock'],Jewelry:['necklace','ring','bracelet','jewelry','pendant','gold','silver','gemstone'],Digital:['download','ebook','course','digital','template','preset','canva'],Amazon:['amazon','prime'],['Sub Box']:['subscribe','subscription','monthly box','box club']};
+  let model='POD',best=0;
+  for(const[m,kws]of Object.entries(sc)){const s=kws.filter(k=>t.includes(k)).length;if(s>best){best=s;model=m;}}
+  return {id:'demo_'+Math.random().toString(36).slice(2),pageName:page,adText:text,landingUrl:url,runningDays:days,isActive,isShopify,creativeType:type,startDate:new Date(Date.now()-days*864e5).toLocaleDateString('en-US'),phase,model,score:Math.min(30+(isActive?30:0)+(days>=30?25:0)+(isShopify?15:0),100),impressions:'N/A',countries:'US'};
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function render() {
+  const wrap = document.getElementById('adsWrap');
+  const phaseMap = { testing:'Testing', validating:'Validating', winning:'Winning', scaling:'Scaling', cashcow:'Cash Cow', hot:'HOT' };
+  const modelMap = { dropship:'Dropship', pod:'POD', jewelry:'Jewelry', digital:'Digital', amazon:'Amazon', subbox:'Sub Box' };
+
+  let f = ads.filter(a => {
+    if (pF !== 'All' && a.phase !== pF) return false;
+    if (mF !== 'All' && a.model !== mF) return false;
+    if (!qFs.has('all') && qFs.size > 0) {
+      let pass = false;
+      for (const q of qFs) {
+        if (q === 'shopify' && a.isShopify) { pass = true; break; }
+        if (phaseMap[q] && a.phase === phaseMap[q]) { pass = true; break; }
+        if (modelMap[q] && a.model === modelMap[q]) { pass = true; break; }
+      }
+      if (!pass) return false;
+    }
+    return true;
+  });
+
+  if (!f.length && !ads.length) {
+    wrap.innerHTML = `<div class="empty-wrap"><div class="empty-ico">🔍</div><h3>AdSpy Pro Ready</h3><p>Click <strong>Scan</strong> to enter your Meta API token and fetch real ads.<br>Or click <strong>Demo</strong> to load sample data.</p></div>`;
+    return;
+  }
+  if (!f.length) {
+    wrap.innerHTML = `<div class="empty-wrap"><div class="empty-ico">🔎</div><h3>No results</h3><p>Try adjusting your filters.</p></div>`;
+    return;
+  }
+
+  const grid = `<div class="ads-grid ${isLarge ? 'large' : ''}">${f.map(cardHTML).join('')}</div>`;
+  wrap.innerHTML = grid;
+}
+
+function cardHTML(a) {
+  const ph = PHASE_STYLE[a.phase] || { bg: '#181818', col: '#777' };
+  const typeIco = a.creativeType?.includes('Video') ? '🎬' : a.creativeType?.includes('Carousel') ? '🎠' : '🖼️';
+  return `<div class="ad-card" onclick="openMod('${a.id}')">
+    <div class="ad-img">${typeIco}
+      <div class="phase-badge" style="background:${ph.bg};color:${ph.col}">${a.phase}</div>
+      <div class="model-badge">${a.model}</div>
+      <div class="score-bar" style="width:${a.score||50}%"></div>
+    </div>
+    <div class="ad-body">
+      <div class="ad-page">📄 ${a.pageName}</div>
+      <div class="ad-text">${a.adText || 'No ad text'}</div>
+      <div class="ad-chips">
+        ${a.isActive ? '<span class="chip active">● Active</span>' : '<span class="chip inactive">○ Inactive</span>'}
+        ${a.isShopify ? '<span class="chip shopify">Shopify</span>' : ''}
+        <span class="chip">${a.creativeType || 'Image'}</span>
+        ${a.impressions && a.impressions !== 'N/A' ? `<span class="chip">${a.impressions}</span>` : ''}
+      </div>
+      <div class="ad-foot">
+        <div class="ad-days">Running: <strong>${a.runningDays}d</strong> · ${a.startDate}</div>
+        <div class="ad-acts">
+          <div class="act-btn" onclick="event.stopPropagation();openMod('${a.id}')" title="Details">👁</div>
+          ${a.landingUrl ? `<div class="act-btn" onclick="event.stopPropagation();window.open('https://${a.landingUrl}','_blank')" title="Visit">🔗</div>` : ''}
+          ${a.snapshotUrl ? `<div class="act-btn" onclick="event.stopPropagation();window.open('${a.snapshotUrl}','_blank')" title="View Ad">📢</div>` : ''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────
+function openMod(id) {
+  const a = ads.find(x => x.id === id); if (!a) return;
+  const ph = PHASE_STYLE[a.phase] || { bg: '#181818', col: '#777' };
+  document.getElementById('modTitle').textContent = a.pageName;
+  const rows = [
+    ['Page', `<strong>${a.pageName}</strong>`],
+    ['Phase', `<span style="background:${ph.bg};color:${ph.col};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">${a.phase}</span>`],
+    ['Model', a.model],
+    ['Status', a.isActive ? '<span style="color:#33cc66">● Active</span>' : '<span style="color:#cc3333">○ Inactive</span>'],
+    ['Start Date', a.startDate],
+    ['Running Days', `${a.runningDays} days`],
+    ['Creative Type', a.creativeType || 'Image'],
+    ['Countries', a.countries || 'N/A'],
+    ['Impressions', a.impressions || 'N/A'],
+    ['Spend', a.spend || 'N/A'],
+    ['Shopify', a.isShopify ? '✅ Yes' : '❌ No'],
+    ['Win Score', `${a.score || 0}/100`],
+    ['Landing Page', a.landingUrl ? `<a href="https://${a.landingUrl}" target="_blank">${a.landingUrl}</a>` : 'N/A'],
+    ['Ad Text', a.adText || 'N/A'],
+    ['Meta ID', `<span style="font-family:monospace;font-size:10px;color:#334">${a.id}</span>`],
+  ];
+  document.getElementById('modBody').innerHTML = rows.map(([k, v]) =>
+    `<div class="m-row"><div class="m-key">${k}</div><div class="m-val">${v}</div></div>`
+  ).join('');
+  document.getElementById('modalBg').classList.add('show');
+}
+function closeMod(e) { if (e.target === document.getElementById('modalBg')) document.getElementById('modalBg').classList.remove('show'); }
+
+// ── FILTERS ───────────────────────────────────────────────────────────────
+function fPhase(el) {
+  document.querySelectorAll('.sidebar .sb-item[data-p]').forEach(x => x.classList.remove('on'));
+  el.classList.add('on'); pF = el.dataset.p; render();
+}
+function fModel(el) {
+  document.querySelectorAll('.sidebar .sb-item[data-m]').forEach(x => x.classList.remove('on'));
+  el.classList.add('on'); mF = el.dataset.m; render();
+}
+function tQF(el) {
+  const q = el.dataset.q;
+  if (q === 'all') {
+    qFs.clear(); qFs.add('all');
+    document.querySelectorAll('.fr-tag').forEach(t => t.classList.remove('on'));
+    el.classList.add('on'); render(); return;
+  }
+  document.querySelector('.fr-tag[data-q="all"]')?.classList.remove('on');
+  qFs.delete('all');
+  if (qFs.has(q)) { qFs.delete(q); el.classList.remove('on'); }
+  else { qFs.add(q); el.classList.add('on'); }
+  if (!qFs.size) { qFs.add('all'); document.querySelector('.fr-tag[data-q="all"]')?.classList.add('on'); }
+  render();
+}
+
+// ── UPDATE ALL ─────────────────────────────────────────────────────────────
+function updateAll() {
+  const phases = ['HOT','Cash Cow','Scaling','Winning','Validating','Testing'];
+  const models = ['POD','Dropship','Jewelry','Digital','Amazon','Sub Box'];
+  document.getElementById('cp-All').textContent = ads.length;
+  document.getElementById('cm-All').textContent = ads.length;
+  document.getElementById('totalCount').textContent = ads.length;
+  phases.forEach(p => {
+    const el = document.getElementById('cp-' + p.replace(' ', ''));
+    if (el) el.textContent = ads.filter(a => a.phase === p).length;
+  });
+  models.forEach(m => {
+    const el = document.getElementById('cm-' + m.replace(' ', ''));
+    if (el) el.textContent = ads.filter(a => a.model === m).length;
+  });
+  document.getElementById('sTotal').textContent  = ads.length;
+  document.getElementById('sActive').textContent = ads.filter(a => a.isActive).length;
+  document.getElementById('sHot').textContent    = ads.filter(a => a.phase === 'HOT').length;
+  document.getElementById('sPOD').textContent    = ads.filter(a => a.model === 'POD').length;
+  document.getElementById('sWin').textContent    = ads.filter(a => ['Winning','Scaling','Cash Cow','HOT'].includes(a.phase)).length;
+  document.getElementById('expCnt').textContent  = `${ads.length} ads collected`;
+  document.getElementById('bottomBar').className = ads.length ? 'bottom-bar show' : 'bottom-bar';
+  render();
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!ads.length) { toast('No ads to export!', 'err'); return; }
+  const h = ['ID','Page','Phase','Model','Active','Start','Days','Type','URL','Shopify','Impressions','Score','Text'];
+  const rows = ads.map(a => [a.id,a.pageName,a.phase,a.model,a.isActive,a.startDate,a.runningDays,a.creativeType,a.landingUrl,a.isShopify,a.impressions,a.score,`"${(a.adText||'').replace(/"/g,'""')}"`]);
+  const blob = new Blob([[h.join(','), ...rows.map(r => r.join(','))].join('\n')], { type: 'text/csv' });
+  dl(blob, 'adspy_pro_export.csv');
+  toast('CSV exported!', 'ok');
+}
+function exportJSON() {
+  if (!ads.length) { toast('No ads to export!', 'err'); return; }
+  dl(new Blob([JSON.stringify(ads, null, 2)], { type: 'application/json' }), 'adspy_pro_export.json');
+  toast('JSON exported!', 'ok');
+}
+function dl(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; a.click(); URL.revokeObjectURL(u); }
+
+// ── MISC ──────────────────────────────────────────────────────────────────
+function toggleScan() {
+  scanOpen = !scanOpen;
+  document.getElementById('scanPanel').classList.toggle('show', scanOpen);
+}
+function toggleLarge() {
+  isLarge = !isLarge;
+  document.getElementById('lgBtn').textContent = isLarge ? '■ Large' : '⊞ Grid';
+  render();
+}
+function clearAll() {
+  if (!confirm('Clear all collected ads?')) return;
+  ads = []; pF = 'All'; mF = 'All'; qFs.clear(); qFs.add('all');
+  document.querySelectorAll('.sb-item[data-p]').forEach(x => x.classList.remove('on'));
+  document.querySelector('.sb-item[data-p="All"]')?.classList.add('on');
+  document.querySelectorAll('.sb-item[data-m]').forEach(x => x.classList.remove('on'));
+  document.querySelector('.sb-item[data-m="All"]')?.classList.add('on');
+  document.querySelectorAll('.fr-tag').forEach(t => t.classList.remove('on'));
+  document.querySelector('.fr-tag[data-q="all"]')?.classList.add('on');
+  updateAll();
+  setApiSt('', 'Not connected');
+  toast('All cleared', 'ok');
+}
+function setApiSt(type, txt) {
+  const d = document.getElementById('apiDot');
+  d.className = 'api-dot' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
+  document.getElementById('apiTxt').textContent = txt;
+  document.getElementById('apiTxt').style.color = type === 'ok' ? '#225533' : type === 'err' ? '#552222' : '#334';
+}
+function showLoad(m, s) { document.getElementById('loadMain').textContent = m; document.getElementById('loadSub').textContent = s; document.getElementById('loadBg').classList.add('show'); }
+function updateLoad(m, s) { document.getElementById('loadMain').textContent = m; if(s) document.getElementById('loadSub').textContent = s; }
+function hideLoad() { document.getElementById('loadBg').classList.remove('show'); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+let tT;
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show ' + (type||'');
+  clearTimeout(tT); tT = setTimeout(() => el.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>
