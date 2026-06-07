@@ -18,45 +18,25 @@ app.get('/api/ads', async (req, res) => {
     ad_type = 'ALL',
     country = 'US',
     limit = 50,
-    after // pagination cursor
+    after
   } = req.query;
 
-  if (!access_token) {
-    return res.status(400).json({ error: 'access_token is required' });
-  }
-  if (!search_terms) {
-    return res.status(400).json({ error: 'search_terms is required' });
-  }
+  if (!access_token) return res.status(400).json({ error: 'access_token is required' });
+  if (!search_terms) return res.status(400).json({ error: 'search_terms is required' });
 
   const fields = [
-    'id',
-    'ad_creation_time',
-    'ad_delivery_start_time',
-    'ad_delivery_stop_time',
-    'ad_snapshot_url',
-    'page_name',
-    'page_id',
-    'creative_bodies',
-    'creative_link_titles',
-    'creative_link_descriptions',
-    'creative_link_captions',
-    'publisher_platforms',
-    'delivery_by_region',
-    'estimated_audience_size',
-    'impressions',
-    'spend',
-    'currency'
+    'id','ad_creation_time','ad_delivery_start_time','ad_delivery_stop_time',
+    'ad_snapshot_url','page_name','page_id','creative_bodies','creative_link_titles',
+    'creative_link_descriptions','creative_link_captions','publisher_platforms',
+    'delivery_by_region','estimated_audience_size','impressions','spend','currency'
   ].join(',');
 
   const params = {
-    access_token,
-    search_terms,
-    ad_type,
+    access_token, search_terms, ad_type,
     ad_reached_countries: JSON.stringify([country]),
     fields,
     limit: Math.min(parseInt(limit), 100),
   };
-
   if (after) params.after = after;
 
   try {
@@ -64,59 +44,141 @@ app.get('/api/ads', async (req, res) => {
       'https://graph.facebook.com/v19.0/ads_archive',
       { params, timeout: 15000 }
     );
-
     const raw = response.data.data || [];
     const paging = response.data.paging || {};
-
-    // Process & enrich each ad
     const ads = raw.map(ad => processAd(ad));
-
-    res.json({
-      ads,
-      total: ads.length,
-      next_cursor: paging.cursors?.after || null,
-      has_more: !!paging.next
-    });
-
+    res.json({ ads, total: ads.length, next_cursor: paging.cursors?.after || null, has_more: !!paging.next });
   } catch (err) {
     const fbError = err.response?.data?.error;
-    if (fbError) {
-      return res.status(400).json({
-        error: fbError.message,
-        code: fbError.code,
-        type: fbError.type
-      });
-    }
+    if (fbError) return res.status(400).json({ error: fbError.message, code: fbError.code });
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
 
-// ─── PROCESS & ENRICH AD DATA ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// ADVANCED AI CLASSIFICATION ENGINE v2
+// ═══════════════════════════════════════════════════════════════
+
+function calcAdvancedScore(ad) {
+  let score = 0;
+  const days = ad.runningDays || 0;
+  const duplicates = ad.duplicateCount || 1;
+  const countries = ad.countryCount || 1;
+  const variations = ad.variationCount || 1;
+  const pageAds = ad.pageAdCount || 0;
+
+  // 1. DAYS LIVE SCORE (40% weight)
+  if (days >= 181)      score += 30;
+  else if (days >= 91)  score += 25;
+  else if (days >= 31)  score += 20;
+  else if (days >= 11)  score += 15;
+  else if (days >= 4)   score += 10;
+  else                  score += 5;
+
+  // 2. DUPLICATE CREATIVE SCORE (20% weight)
+  if (duplicates >= 30)      score += 30;
+  else if (duplicates >= 11) score += 20;
+  else if (duplicates >= 4)  score += 10;
+  else if (duplicates >= 2)  score += 5;
+
+  // 3. COUNTRY EXPANSION SCORE (15% weight)
+  if (countries >= 15)     score += 30;
+  else if (countries >= 6) score += 20;
+  else if (countries >= 2) score += 10;
+
+  // 4. PAGE ACTIVITY SCORE (10% weight)
+  if (pageAds >= 200)      score += 25;
+  else if (pageAds >= 51)  score += 15;
+  else if (pageAds >= 11)  score += 5;
+
+  // 5. CREATIVE VARIATION SCORE (10% weight)
+  if (variations >= 15)     score += 30;
+  else if (variations >= 6) score += 20;
+  else if (variations >= 2) score += 10;
+
+  // 6. LANDING PAGE STABILITY SCORE
+  if (days >= 90)      score += 30;
+  else if (days >= 60) score += 20;
+  else if (days >= 30) score += 10;
+
+  // 7. REUPLOAD BONUS
+  if (ad.isReupload) score += 15;
+
+  // 8. ENGAGEMENT SCORE
+  if (ad.engagementLevel === 'high')   score += 20;
+  else if (ad.engagementLevel === 'medium') score += 10;
+
+  return score;
+}
+
+function detectPhase(ad) {
+  const days = ad.runningDays || 0;
+  const duplicates = ad.duplicateCount || 1;
+  const countries = ad.countryCount || 1;
+  const score = ad.rawScore || 0;
+
+  // HOT: অল্প দিনে অনেক duplicate + country expansion
+  if (days <= 14 && duplicates >= 10 && countries >= 3) return 'HOT';
+
+  // LEGEND: 180+ days, massive scale
+  if (days > 180 && score > 150) return 'Legend';
+
+  // CASH COW: 90+ days, high score
+  if (days > 90 && score > 110) return 'Cash Cow';
+
+  // SCALING: high score + country/duplicate expansion
+  if (score >= 70 && (countries > 3 || duplicates > 5)) return 'Scaling';
+
+  // WINNING: medium-high score
+  if (score >= 40 && days >= 11) return 'Winning';
+
+  // VALIDATING: early stage
+  if (score >= 20 && days <= 10) return 'Validating';
+
+  // TESTING: brand new
+  return 'Testing';
+}
+
+// Confidence formula: min(score/150, 1) * 100
+function calcConfidence(score) {
+  return Math.round(Math.min(score / 150, 1) * 100);
+}
+
+// Phase reason generator
+function getPhaseReason(ad) {
+  const reasons = [];
+  if (ad.duplicateCount > 1)  reasons.push(`${ad.duplicateCount} duplicates`);
+  if (ad.countryCount > 1)    reasons.push(`${ad.countryCount} countries`);
+  if (ad.runningDays > 0)     reasons.push(`${ad.runningDays} days active`);
+  if (ad.isShopify)           reasons.push('Shopify store');
+  return reasons.slice(0, 3).join(', ') || 'New ad';
+}
+
+// ─── PROCESS RAW API AD ──────────────────────────────────────────────────────
 function processAd(raw) {
   const startDate = raw.ad_delivery_start_time
     ? new Date(raw.ad_delivery_start_time)
     : new Date(raw.ad_creation_time);
-  const stopDate = raw.ad_delivery_stop_time
-    ? new Date(raw.ad_delivery_stop_time)
-    : null;
+  const stopDate = raw.ad_delivery_stop_time ? new Date(raw.ad_delivery_stop_time) : null;
   const today = new Date();
   const runningDays = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
   const isActive = !stopDate || stopDate > today;
 
-  const adText = [
-    ...(raw.creative_bodies || []),
-    ...(raw.creative_link_descriptions || [])
-  ].join(' ').trim();
-
+  const adText = [...(raw.creative_bodies || []), ...(raw.creative_link_descriptions || [])].join(' ').trim();
   const landingUrl = (raw.creative_link_captions || [])[0] || '';
   const title = (raw.creative_link_titles || [])[0] || '';
 
-  // Creative type detection
+  // Count countries
+  const countryCount = raw.delivery_by_region ? Object.keys(raw.delivery_by_region).length : 1;
+  const countries = raw.delivery_by_region
+    ? Object.keys(raw.delivery_by_region).slice(0, 5).join(', ')
+    : 'N/A';
+
+  // Creative type
   let creativeType = 'Image';
   if ((raw.creative_link_titles || []).length > 1) creativeType = 'Carousel';
-  if ((raw.publisher_platforms || []).includes('instagram')) creativeType = creativeType + '+IG';
 
-  // Impressions range
+  // Impressions
   let impressions = 'N/A';
   if (raw.impressions) {
     const lo = Number(raw.impressions.lower_bound);
@@ -126,16 +188,13 @@ function processAd(raw) {
     else impressions = `${lo}–${hi}`;
   }
 
-  // Spend range
-  let spend = 'N/A';
-  if (raw.spend) {
-    spend = `${raw.spend.lower_bound}–${raw.spend.upper_bound} ${raw.currency || 'USD'}`;
+  // Engagement level from impressions
+  let engagementLevel = 'low';
+  if (raw.impressions) {
+    const lo = Number(raw.impressions.lower_bound);
+    if (lo >= 1000000) engagementLevel = 'high';
+    else if (lo >= 100000) engagementLevel = 'medium';
   }
-
-  // Countries
-  const countries = raw.delivery_by_region
-    ? Object.keys(raw.delivery_by_region).slice(0, 4).join(', ')
-    : 'N/A';
 
   const ad = {
     id: raw.id,
@@ -150,89 +209,69 @@ function processAd(raw) {
     isActive,
     creativeType,
     countries,
+    countryCount,
     impressions,
-    spend,
+    engagementLevel,
+    spend: raw.spend ? `${raw.spend.lower_bound}–${raw.spend.upper_bound} ${raw.currency || 'USD'}` : 'N/A',
     snapshotUrl: raw.ad_snapshot_url || '',
     platforms: (raw.publisher_platforms || ['facebook']).join(', '),
+    // Heuristic estimates (real values need Chrome Extension)
+    duplicateCount: 1,
+    variationCount: 1,
+    pageAdCount: 0,
+    isReupload: false,
     collectedAt: new Date().toISOString()
   };
 
-  // AI-like detection
-  ad.model = detectModel(ad);
+  // Run AI Classification Engine
+  ad.rawScore = calcAdvancedScore(ad);
   ad.phase = detectPhase(ad);
-  ad.score = calcScore(ad);
+  ad.confidence = calcConfidence(ad.rawScore);
+  ad.phaseReason = getPhaseReason(ad);
+  ad.model = detectModel(ad);
+  ad.score = ad.rawScore;
 
   return ad;
 }
 
-// ─── PHASE DETECTION LOGIC ───────────────────────────────────────────────────
-function detectPhase(ad) {
-  const { runningDays, isActive } = ad;
-  if (!isActive && runningDays > 90)  return 'Cash Cow';
-  if (runningDays >= 60 && isActive)   return 'HOT';
-  if (runningDays >= 30 && isActive)   return 'Scaling';
-  if (runningDays >= 14 && isActive)   return 'Winning';
-  if (runningDays >= 7)                return 'Validating';
-  return 'Testing';
-}
-
-// ─── MODEL DETECTION LOGIC ───────────────────────────────────────────────────
+// ─── MODEL DETECTION ─────────────────────────────────────────────────────────
 function detectModel(ad) {
-  const text = [ad.adText, ad.title, ad.pageName, ad.landingUrl]
-    .join(' ').toLowerCase();
+  const text = [ad.adText, ad.title, ad.pageName, ad.landingUrl].join(' ').toLowerCase();
 
   const scores = {
-    POD: score(text, ['print', 'custom', 'personalized', 'islamic', 'muslim',
-      'motivational', 'teacher', 'nurse', 'quote', 'tshirt', 't-shirt',
-      'hoodie', 'mug', 'poster', 'shirt', 'apparel', 'wear', 'gift',
-      'calligraphy', 'hijab', 'quran', 'faith']),
-    Dropship: score(text, ['free shipping', 'order now', 'limited stock',
-      'aliexpress', 'buy now', 'ships from', 'worldwide shipping',
-      'add to cart', '% off today']),
-    Jewelry: score(text, ['necklace', 'ring', 'bracelet', 'jewelry',
-      'jewellery', 'pendant', 'gold', 'silver', 'gemstone', 'diamond',
-      'earring', 'crystal', 'handcrafted']),
-    Digital: score(text, ['download', 'ebook', 'course', 'digital',
-      'template', 'preset', 'software', 'app', 'pdf', 'guide',
-      'masterclass', 'instant access', 'canva']),
-    Amazon: score(text, ['amazon', 'prime', 'asin', 'amazon.com']),
-    'Sub Box': score(text, ['subscribe', 'subscription', 'monthly box',
-      'box club', 'members', 'unboxing', 'curated box'])
+    POD: scoreKw(text, ['print','custom','personalized','islamic','muslim','motivational',
+      'teacher','nurse','quote','tshirt','t-shirt','hoodie','mug','poster','shirt',
+      'apparel','wear','gift','calligraphy','hijab','quran','faith','god']),
+    Dropship: scoreKw(text, ['free shipping','order now','limited stock','aliexpress',
+      'buy now','ships from','worldwide shipping','add to cart','% off today','flash sale']),
+    Jewelry: scoreKw(text, ['necklace','ring','bracelet','jewelry','jewellery','pendant',
+      'gold','silver','gemstone','diamond','earring','crystal','handcrafted','925']),
+    Digital: scoreKw(text, ['download','ebook','course','digital','template','preset',
+      'software','app','pdf','guide','masterclass','instant access','canva','notion']),
+    Amazon: scoreKw(text, ['amazon','prime','asin','amazon.com','fulfilled by']),
+    'Sub Box': scoreKw(text, ['subscribe','subscription','monthly box','box club',
+      'members','unboxing','curated box','mystery box'])
   };
 
   const best = Object.entries(scores).sort((a, b) => b[1] - a[1]);
   return best[0][1] > 0 ? best[0][0] : 'POD';
 }
 
-function score(text, keywords) {
+function scoreKw(text, keywords) {
   return keywords.reduce((acc, k) => acc + (text.includes(k) ? 1 : 0), 0);
 }
 
-// ─── WIN SCORE ───────────────────────────────────────────────────────────────
-function calcScore(ad) {
-  let s = 0;
-  if (ad.isActive) s += 30;
-  if (ad.runningDays >= 30) s += 25;
-  if (ad.runningDays >= 60) s += 20;
-  if (ad.isShopify) s += 15;
-  if (ad.impressions !== 'N/A') s += 10;
-  return Math.min(s, 100);
-}
-
 function isShopifyUrl(url) {
-  return url.includes('myshopify.com') ||
-    url.includes('.com/products') ||
-    url.includes('.com/collections');
+  return url.includes('myshopify.com') || url.includes('.com/products') || url.includes('.com/collections');
 }
 
-// ─── TOKEN VERIFY ENDPOINT ───────────────────────────────────────────────────
+// ─── TOKEN VERIFY ────────────────────────────────────────────────────────────
 app.get('/api/verify-token', async (req, res) => {
   const { access_token } = req.query;
   if (!access_token) return res.status(400).json({ valid: false, error: 'No token' });
   try {
     const r = await axios.get('https://graph.facebook.com/v19.0/me', {
-      params: { access_token, fields: 'id,name' },
-      timeout: 8000
+      params: { access_token, fields: 'id,name' }, timeout: 8000
     });
     res.json({ valid: true, user: r.data });
   } catch (e) {
@@ -242,7 +281,7 @@ app.get('/api/verify-token', async (req, res) => {
 
 // ─── HEALTH CHECK ────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '5.1.7', time: new Date().toISOString() });
+  res.json({ status: 'ok', version: '5.1.7', engine: 'Advanced AI v2', time: new Date().toISOString() });
 });
 
 // ─── SERVE FRONTEND ──────────────────────────────────────────────────────────
@@ -251,5 +290,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🔍 AdSpy Pro v5.1.7 running on port ${PORT}`);
+  console.log(`🔍 AdSpy Pro v5.1.7 [Advanced AI Engine v2] running on port ${PORT}`);
 });
