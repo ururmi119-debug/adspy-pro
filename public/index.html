@@ -4,206 +4,218 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AdSpy Pro v5.1.7</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+:root {
+  --bg: #080b12;
+  --s1: #0d1117;
+  --s2: #111827;
+  --s3: #1a2236;
+  --b1: #1e2d4a;
+  --b2: #243755;
+  --tx: #e2e8f0;
+  --t2: #94a3b8;
+  --t3: #475569;
+  --acc: #3b82f6;
+  --hot: #ef4444;
+  --win: #22c55e;
+  --cas: #f59e0b;
+  --sca: #3b82f6;
+  --val: #8b5cf6;
+  --leg: #fbbf24;
+  --pod: #06b6d4;
+  --drop:#f97316;
+  --jwl: #ec4899;
+  --dig: #10b981;
+  --amz: #f59e0b;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#13131f;font-family:'Segoe UI',sans-serif;color:#e0e0e0;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;display:flex;height:100vh;overflow:hidden}
 
-/* TOPBAR */
-.topbar{display:flex;align-items:center;gap:6px;padding:8px 14px;background:#0e0e1a;border-bottom:1px solid #252538;flex-shrink:0;flex-wrap:wrap}
-.tb-logo{display:flex;align-items:center;gap:6px;margin-right:6px}
-.tb-logo .name{font-size:13px;font-weight:700;color:#fff}
-.tb-logo .ver{font-size:9px;color:#44445a;margin-left:2px}
-.tb-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #252538;background:#181826;color:#9090b0;transition:all .15s;white-space:nowrap;user-select:none}
-.tb-btn:hover{background:#222236;color:#ccc}
-.tb-btn.active-btn{background:#1a2a4a;border-color:#2a4a80;color:#6699ff}
-.tb-btn.count-btn{background:#1e1a08;border-color:#4a3a00;color:#ffbb33;font-weight:700}
-.tb-btn.auto-btn{background:#0a1a40;border-color:#1a3a80;color:#4488ff}
-.tb-bolt{width:28px;height:28px;border-radius:50%;background:#181826;border:1px solid #252538;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:#ffcc44}
-.tb-trash{width:28px;height:28px;border-radius:50%;background:#181826;border:1px solid #252538;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:#555}
-.tb-trash:hover{color:#ff5555;border-color:#552222}
-.api-status-row{display:flex;align-items:center;gap:6px;margin-left:auto}
-.api-dot{width:7px;height:7px;border-radius:50%;background:#333}
-.api-dot.ok{background:#33cc66;box-shadow:0 0 6px #33cc66}
-.api-dot.err{background:#ff4444;box-shadow:0 0 6px #ff4444}
-.api-txt{font-size:10px;color:#445}
+/* ── SIDEBAR ── */
+.sb{width:220px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb::-webkit-scrollbar{width:3px}
+.sb::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px}
+.sb-logo-txt{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:#fff}
+.sb-logo-txt span{color:var(--acc)}
+.sb-logo-ver{font-size:9px;color:var(--t3);font-family:'Space Mono',monospace;margin-left:auto}
+.sb-sec{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:14px 16px 5px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:500;color:var(--t2);transition:all .12s;border-left:2px solid transparent;user-select:none}
+.sb-item:hover{background:var(--s2);color:var(--tx)}
+.sb-item.on{background:var(--s2);color:var(--tx);border-left-color:var(--acc)}
+.sb-item .ico{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.sb-cnt{margin-left:auto;font-size:10px;font-family:'Space Mono',monospace;background:var(--s3);color:var(--t3);padding:1px 6px;border-radius:8px}
+.sb-item.on .sb-cnt{background:rgba(59,130,246,.15);color:var(--acc)}
 
-/* FILTER ROW */
-.filter-row{display:flex;align-items:center;gap:5px;padding:7px 14px;background:#0e0e1a;border-bottom:1px solid #1e1e30;flex-shrink:0;overflow-x:auto}
-.filter-row::-webkit-scrollbar{height:0}
-.fr-tag{padding:4px 11px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #1e1e30;color:#555;background:transparent;white-space:nowrap;transition:all .12s;user-select:none}
-.fr-tag:hover{border-color:#333;color:#999}
-.fr-tag.on{border-color:#3a3a60;background:#1e1e38;color:#fff}
-.fr-sep{width:1px;height:18px;background:#252538;flex-shrink:0;margin:0 3px}
-.fr-label{font-size:10px;color:#333;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
-/* Phase colors */
-.hot-tag.on{background:#2a0a0a;border-color:#6a2020;color:#ff6666}
-.cashcow-tag.on{background:#1e1200;border-color:#5a3800;color:#ffaa33}
-.scaling-tag.on{background:#081420;border-color:#1a3a5a;color:#4499ff}
-.winning-tag.on{background:#081a0a;border-color:#1a4a20;color:#44cc77}
-.validating-tag.on{background:#120a22;border-color:#3a1a5a;color:#aa66ff}
-.testing-tag.on{background:#181818;border-color:#383838;color:#888}
-.shopify-tag.on{background:#081808;border-color:#205a20;color:#44cc44}
-.pod-tag.on{background:#081428;border-color:#1a3a6a;color:#4488ff}
-.drop-tag.on{background:#1e0e04;border-color:#5a2810;color:#ff7733}
-.jwl-tag.on{background:#160820;border-color:#4a1a60;color:#cc55ff}
-.digi-tag.on{background:#061408;border-color:#1a4a20;color:#44bb44}
-.amz-tag.on{background:#1a1000;border-color:#4a3000;color:#ffaa22}
-.sub-tag.on{background:#160816;border-color:#4a1a44;color:#dd55cc}
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 
-/* LAYOUT */
-.body-wrap{display:flex;flex:1;overflow:hidden}
+/* ── TOPBAR ── */
+.tb{display:flex;align-items:center;gap:8px;padding:10px 20px;background:var(--s1);border-bottom:1px solid var(--b1);flex-shrink:0}
+.tb-title{font-size:14px;font-weight:600;color:var(--tx);margin-right:4px}
+.tb-search{flex:1;max-width:400px;position:relative}
+.tb-search input{width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:7px 12px 7px 32px;color:var(--tx);font-size:12px;font-family:'DM Sans',sans-serif;outline:none;transition:border .15s}
+.tb-search input:focus{border-color:var(--acc)}
+.tb-search input::placeholder{color:var(--t3)}
+.tb-search-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:13px}
+.tb-actions{display:flex;gap:6px;margin-left:auto}
+.tb-btn{padding:6px 12px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-family:'DM Sans',sans-serif;transition:all .12s;white-space:nowrap}
+.tb-btn:hover{background:var(--s3);color:var(--tx)}
+.tb-btn.prim{background:var(--acc);border-color:var(--acc);color:#fff}
+.tb-btn.prim:hover{background:#2563eb}
+.notif{width:30px;height:30px;border-radius:50%;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;position:relative}
+.notif-dot{width:7px;height:7px;border-radius:50%;background:var(--hot);position:absolute;top:4px;right:4px;border:1px solid var(--s1)}
 
-/* SIDEBAR */
-.sidebar{width:195px;background:#0c0c18;border-right:1px solid #1e1e30;display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
-.sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:#2a2a3e;border-radius:2px}
-.sb-logo{display:flex;align-items:center;gap:8px;padding:14px 14px 12px;border-bottom:1px solid #1a1a28}
-.sb-logo .lname{font-size:13px;font-weight:700;color:#fff}
-.sb-sec{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#333;padding:12px 14px 5px}
-.sb-item{display:flex;align-items:center;gap:9px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:500;color:#505068;transition:all .12s;user-select:none}
-.sb-item:hover{background:#141428;color:#aaa}
-.sb-item.on{background:#1a1a2e;color:#ddd}
-.sb-item .ico{font-size:13px;width:16px;text-align:center;flex-shrink:0}
-.sb-cnt{margin-left:auto;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:#181828;color:#445}
-.sb-item.on .sb-cnt{background:#222238}
-/* Count colors */
-.c-hot{background:#2a0a0a!important;color:#ff5555!important}
-.c-cashcow{background:#1e1200!important;color:#ffaa33!important}
-.c-scaling{background:#081420!important;color:#4488ff!important}
-.c-winning{background:#081a0a!important;color:#33cc66!important}
-.c-validating{background:#120a22!important;color:#aa66ff!important}
-.c-testing{background:#181818!important;color:#666!important}
-.c-pod{background:#081420!important;color:#4488ff!important}
-.c-drop{background:#1e0e04!important;color:#ff7733!important}
-.c-jwl{background:#160820!important;color:#cc55ff!important}
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:20px}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
 
-/* SCAN PANEL */
-.scan-panel{display:none;padding:12px 14px;background:#080812;border-bottom:1px solid #1a1a2a}
-.scan-panel.show{display:block}
-.sp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px}
-.sp-field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px}
-.sp-label{font-size:10px;color:#445;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-.sp-input{background:#0e0e1e;border:1px solid #252538;border-radius:6px;padding:7px 10px;color:#ddd;font-size:11px;outline:none;width:100%;transition:border-color .15s}
-.sp-input:focus{border-color:#3366aa}
-.sp-input::placeholder{color:#333}
-.sp-btn{padding:7px 16px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:none;font-family:'Segoe UI',sans-serif;transition:all .15s;white-space:nowrap}
-.sp-fetch{background:#1a3a7a;color:#88bbff}
-.sp-fetch:hover{background:#2a4a8a}
-.sp-demo{background:#1e1e30;color:#778;border:1px solid #252538}
-.sp-demo:hover{background:#252540;color:#aaa}
-.sp-guide{background:#080e1a;border:1px solid #1a2a3a;border-radius:6px;padding:8px 10px;font-size:10px;color:#3a5a7a;line-height:1.7}
-.sp-guide strong{color:#4477aa}
-.sp-guide a{color:#4488cc;text-decoration:none}
+/* ── PAGE SECTIONS ── */
+.page{display:none}
+.page.on{display:block}
 
-/* MAIN */
-.main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;transition:border-color .15s}
+.stat-card:hover{border-color:var(--b2)}
+.stat-val{font-size:22px;font-weight:700;font-family:'Space Mono',monospace;margin-bottom:2px}
+.stat-lbl{font-size:11px;color:var(--t2);font-weight:500}
+.stat-delta{font-size:10px;color:var(--win);margin-top:3px;font-family:'Space Mono',monospace}
 
-/* STATS */
-.stats-row{display:flex;border-bottom:1px solid #1a1a2a;flex-shrink:0}
-.stat-item{flex:1;padding:9px 14px;background:#0e0e1a;border-right:1px solid #1a1a2a}
-.stat-item:last-child{border-right:none}
-.stat-val{font-size:18px;font-weight:700;color:#ddd}
-.stat-lbl{font-size:10px;color:#445;margin-top:1px}
-.s-active .stat-val{color:#33cc66}
-.s-hot .stat-val{color:#ff5555}
-.s-pod .stat-val{color:#4488ff}
-.s-win .stat-val{color:#44bb44}
+/* ── AD GRID ── */
+.grid-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.grid-title{font-size:14px;font-weight:600}
+.grid-controls{display:flex;gap:6px}
+.gc-btn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-family:'DM Sans',sans-serif;transition:all .12s}
+.gc-btn:hover,.gc-btn.on{background:var(--s3);color:var(--tx);border-color:var(--b2)}
 
-/* ADS */
-.ads-wrap{flex:1;overflow-y:auto;padding:12px}
-.ads-wrap::-webkit-scrollbar{width:4px}
-.ads-wrap::-webkit-scrollbar-thumb{background:#222236;border-radius:2px}
-.ads-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
-.ads-grid.large{grid-template-columns:repeat(auto-fill,minmax(310px,1fr))}
+.ads-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.ads-grid.lg{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+.ads-grid.list{grid-template-columns:1fr}
 
-/* AD CARD */
-.ad-card{background:#0e0e1e;border:1px solid #1e1e30;border-radius:10px;overflow:hidden;cursor:pointer;transition:all .18s}
-.ad-card:hover{border-color:#2e2e50;transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,.5)}
-.ad-img{height:130px;background:#141428;display:flex;align-items:center;justify-content:center;position:relative;font-size:26px;color:#252538}
-.phase-badge{position:absolute;top:8px;left:8px;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-.model-badge{position:absolute;top:8px;right:8px;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;text-transform:uppercase;background:rgba(0,0,0,.7);color:#888;border:1px solid #252538}
-.score-bar{position:absolute;bottom:0;left:0;height:2px;background:linear-gradient(90deg,#1a3a8a,#33aaff);transition:width .3s}
+.ad-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;cursor:pointer;transition:all .18s}
+.ad-card:hover{border-color:var(--b2);transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.ad-img{height:140px;background:var(--s2);display:flex;align-items:center;justify-content:center;position:relative;font-size:28px;color:var(--b2)}
+.ad-img.lg{height:200px}
+.phase-b{position:absolute;top:8px;left:8px;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-family:'Space Mono',monospace}
+.model-b{position:absolute;top:8px;right:8px;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;background:rgba(0,0,0,.7);color:var(--t2);border:1px solid var(--b1)}
+.conf-b{position:absolute;bottom:8px;right:8px;font-size:9px;font-family:'Space Mono',monospace;color:var(--t3);background:rgba(0,0,0,.6);padding:2px 6px;border-radius:3px}
+.score-line{position:absolute;bottom:0;left:0;height:2px;background:linear-gradient(90deg,var(--acc),var(--win))}
+
 .ad-body{padding:10px 12px}
-.ad-page{font-size:12px;font-weight:600;color:#ccc;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ad-text{font-size:11px;color:#4a5060;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:8px}
+.ad-page{font-size:12px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-txt{font-size:11px;color:var(--t3);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:8px}
 .ad-chips{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px}
-.chip{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600;border:1px solid #1e1e30;color:#446}
-.chip.active{color:#33cc66;border-color:#1a3a22;background:#081408}
-.chip.inactive{color:#cc3333;border-color:#3a1818;background:#140808}
-.chip.shopify{color:#33cc44;border-color:#1a4422;background:#081208}
-.ad-foot{display:flex;align-items:center;justify-content:space-between;padding-top:7px;border-top:1px solid #141422}
-.ad-days{font-size:10px;color:#445}
-.ad-days strong{color:#4488ff}
+.chip{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600;border:1px solid var(--b1);color:var(--t3)}
+.chip.act{color:var(--win);border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.06)}
+.chip.inact{color:var(--hot);border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.06)}
+.chip.shp{color:var(--win);border-color:rgba(34,197,94,.2)}
+.ad-foot{display:flex;align-items:center;justify-content:space-between;padding-top:7px;border-top:1px solid var(--b1)}
+.ad-days{font-size:10px;color:var(--t3);font-family:'Space Mono',monospace}
+.ad-days strong{color:var(--acc)}
 .ad-acts{display:flex;gap:3px}
-.act-btn{width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;background:#141428;border:1px solid #1e1e30;color:#445;font-size:11px;transition:all .12s}
-.act-btn:hover{color:#6699ff;border-color:#2a3a6a}
+.aact{width:22px;height:22px;border-radius:4px;cursor:pointer;background:var(--s2);border:1px solid var(--b1);color:var(--t3);font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.aact:hover{color:var(--acc);border-color:var(--acc)}
 
-/* EMPTY STATE */
-.empty-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:40px;text-align:center;gap:14px}
-.empty-ico{width:56px;height:56px;background:#141428;border:1px solid #1e1e30;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px}
-.empty-wrap h3{font-size:15px;font-weight:600;color:#aaa}
-.empty-wrap p{font-size:12px;color:#445;max-width:300px;line-height:1.7}
-.empty-wrap strong{color:#888}
+/* List view card */
+.ad-card.list-card{display:grid;grid-template-columns:180px 1fr auto;align-items:center}
+.ad-card.list-card .ad-img{width:180px;height:80px}
+.ad-card.list-card .ad-body{border-left:1px solid var(--b1)}
+.ad-card.list-card .ad-foot{flex-direction:column;gap:6px;padding:10px 12px;border-top:none;border-left:1px solid var(--b1);min-width:120px}
 
-/* BOTTOM BAR */
-.bottom-bar{display:none;align-items:center;gap:6px;padding:8px 14px;background:#0a0a14;border-top:1px solid #1a1a28;flex-shrink:0}
-.bottom-bar.show{display:flex}
-.exp-btn{padding:5px 12px;border-radius:14px;border:1px solid #1e1e30;font-size:10px;font-weight:600;cursor:pointer;background:transparent;color:#556;transition:all .12s}
-.exp-btn:hover{border-color:#2a2a48;color:#aaa}
-.clr-btn{padding:5px 12px;border-radius:14px;border:1px solid #3a1010;font-size:10px;font-weight:600;cursor:pointer;background:#160808;color:#cc3333;margin-left:auto}
-.exp-cnt{font-size:10px;color:#334;margin-left:4px}
+/* ── FILTERS BAR ── */
+.filter-bar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.fb-tag{padding:5px 11px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--b1);color:var(--t3);background:transparent;transition:all .12s;white-space:nowrap}
+.fb-tag:hover,.fb-tag.on{border-color:var(--acc);color:var(--acc);background:rgba(59,130,246,.08)}
+.fb-sep{width:1px;height:20px;background:var(--b1);margin:0 2px}
 
-/* DETAIL MODAL */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(5,5,12,.88);z-index:100;align-items:center;justify-content:center;padding:20px}
+/* ── SECTION CARDS ── */
+.sec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.sec-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;cursor:pointer;transition:all .15s}
+.sec-card:hover{border-color:var(--acc);background:var(--s2)}
+.sec-card-ico{font-size:24px;margin-bottom:10px}
+.sec-card-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.sec-card-sub{font-size:11px;color:var(--t3);line-height:1.5}
+
+/* ── ANALYTICS ── */
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.ana-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px}
+.ana-title{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bar-label{font-size:11px;color:var(--t2);width:80px;flex-shrink:0}
+.bar-wrap{flex:1;height:6px;background:var(--s2);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.bar-val{font-size:10px;color:var(--t3);font-family:'Space Mono',monospace;width:40px;text-align:right}
+
+/* ── DOMAIN TABLE ── */
+.table{width:100%;border-collapse:collapse}
+.table th{text-align:left;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;padding:8px 12px;border-bottom:1px solid var(--b1)}
+.table td{padding:9px 12px;font-size:12px;border-bottom:1px solid var(--b1);color:var(--t2)}
+.table tr:hover td{background:var(--s2);color:var(--tx)}
+.table tr:last-child td{border-bottom:none}
+.td-badge{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700}
+
+/* ── EMPTY ── */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;text-align:center;gap:12px}
+.empty-ico{width:52px;height:52px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.empty h3{font-size:14px;font-weight:600}
+.empty p{font-size:12px;color:var(--t3);max-width:280px;line-height:1.7}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(5,7,12,.88);z-index:100;align-items:center;justify-content:center;padding:20px}
 .modal-bg.show{display:flex}
-.modal-box{background:#0e0e1e;border:1px solid #252540;border-radius:14px;width:100%;max-width:460px;max-height:82vh;overflow-y:auto}
-.modal-box::-webkit-scrollbar{width:3px}
-.modal-box::-webkit-scrollbar-thumb{background:#252538;border-radius:2px}
-.m-hdr{padding:14px 18px;border-bottom:1px solid #181828;display:flex;align-items:center;justify-content:space-between}
-.m-hdr h3{font-size:13px;font-weight:600;color:#ddd}
-.m-cls{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#141428;border:1px solid #1e1e30;cursor:pointer;color:#556;font-size:13px}
-.m-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 18px;border-bottom:1px solid #121220;gap:12px}
+.modal{background:var(--s1);border:1px solid var(--b1);border-radius:14px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
+.modal::-webkit-scrollbar{width:3px}
+.modal::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+.m-hdr{padding:14px 18px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
+.m-hdr h3{font-size:13px;font-weight:600}
+.m-cls{width:26px;height:26px;border-radius:6px;background:var(--s2);border:1px solid var(--b1);cursor:pointer;color:var(--t3);font-size:13px;display:flex;align-items:center;justify-content:center}
+.m-row{display:flex;justify-content:space-between;padding:8px 18px;border-bottom:1px solid var(--b1);gap:12px}
 .m-row:last-child{border-bottom:none}
-.m-key{font-size:10px;font-weight:700;color:#334;text-transform:uppercase;letter-spacing:.07em;flex-shrink:0;font-family:monospace}
-.m-val{font-size:11px;color:#bbb;text-align:right;word-break:break-all;line-height:1.5}
-.m-val a{color:#4488cc;text-decoration:none}
+.m-key{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;font-family:'Space Mono',monospace}
+.m-val{font-size:11px;color:var(--tx);text-align:right;word-break:break-all}
+.m-val a{color:var(--acc);text-decoration:none}
 
-/* LOADING MODAL */
-.load-bg{display:none;position:fixed;inset:0;background:rgba(5,5,12,.86);z-index:200;align-items:center;justify-content:center}
-.load-bg.show{display:flex}
-.load-box{background:#0e0e1e;border:1px solid #252540;border-radius:16px;padding:38px 50px;display:flex;flex-direction:column;align-items:center;gap:16px;min-width:280px}
-.load-logo{font-size:20px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
-.load-spin{width:38px;height:38px;border:3px solid #1e1e30;border-top-color:#ffcc33;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.load-main{font-size:13px;font-weight:600;color:#ccc}
-.load-sub{font-size:11px;color:#445}
-
-/* TOAST */
-.toast{position:fixed;bottom:16px;right:16px;background:#0e0e1e;border:1px solid #252538;border-radius:10px;padding:10px 16px;font-size:12px;font-weight:500;color:#ccc;z-index:300;opacity:0;transform:translateY(16px);transition:all .25s;max-width:260px;pointer-events:none}
+/* ── TOAST ── */
+.toast{position:fixed;bottom:16px;right:16px;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 16px;font-size:12px;font-weight:500;color:var(--tx);z-index:200;opacity:0;transform:translateY(16px);transition:all .25s;pointer-events:none;max-width:260px}
 .toast.show{opacity:1;transform:translateY(0)}
-.toast.ok{border-color:#1a4422;color:#44cc66}
-.toast.err{border-color:#4a1a1a;color:#ff5555}
+.toast.ok{border-color:rgba(34,197,94,.4);color:var(--win)}
+.toast.err{border-color:rgba(239,68,68,.4);color:var(--hot)}
+
+/* ── FAVORITES ── */
+.fav-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.fav-card{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px;cursor:pointer;transition:all .12s}
+.fav-card:hover{border-color:var(--acc)}
+.fav-title{font-size:12px;font-weight:600;margin-bottom:4px}
+.fav-sub{font-size:10px;color:var(--t3)}
+
+/* ── PROFILE ── */
+.profile-card{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:24px;max-width:500px}
+.profile-avatar{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--val));display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:14px}
+.profile-name{font-size:16px;font-weight:700;margin-bottom:4px}
+.profile-email{font-size:12px;color:var(--t3);margin-bottom:16px}
+.profile-field{margin-bottom:12px}
+.profile-field label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px}
+.profile-field input{width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif}
+.profile-field input:focus{border-color:var(--acc)}
+
+/* ── BACKUP ── */
+.backup-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:500px}
+.bk-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;cursor:pointer;transition:all .15s;text-align:center}
+.bk-card:hover{border-color:var(--acc);background:var(--s2)}
+.bk-ico{font-size:28px;margin-bottom:8px}
+.bk-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.bk-sub{font-size:10px;color:var(--t3)}
 </style>
 </head>
 <body>
 
-<!-- LOADING -->
-<div class="load-bg" id="loadBg">
-  <div class="load-box">
-    <div class="load-logo">🔍 AdSpy Pro</div>
-    <div class="load-spin"></div>
-    <div class="load-main" id="loadMain">Applying large creative...</div>
-    <div class="load-sub" id="loadSub">Laying out ad cards</div>
-  </div>
-</div>
-
-<!-- DETAIL MODAL -->
-<div class="modal-bg" id="modalBg" onclick="closeMod(event)">
-  <div class="modal-box">
-    <div class="m-hdr">
-      <h3 id="modTitle">Ad Details</h3>
-      <div class="m-cls" onclick="document.getElementById('modalBg').classList.remove('show')">✕</div>
-    </div>
+<!-- MODAL -->
+<div class="modal-bg" id="modBg" onclick="closeMod(event)">
+  <div class="modal">
+    <div class="m-hdr"><h3 id="modTitle">Ad Details</h3><div class="m-cls" onclick="document.getElementById('modBg').classList.remove('show')">✕</div></div>
     <div id="modBody"></div>
   </div>
 </div>
@@ -211,455 +223,658 @@ body{background:#13131f;font-family:'Segoe UI',sans-serif;color:#e0e0e0;height:1
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- TOPBAR -->
-<div class="topbar">
-  <div class="tb-logo">
-    <span>🔍</span>
-    <span class="name">AdSpy Pro</span>
-    <span class="ver">v5.1.7</span>
-    <span style="color:#252538;margin:0 4px">—</span>
+<!-- SIDEBAR -->
+<div class="sb">
+  <div class="sb-logo">
+    <span style="font-size:16px">🔍</span>
+    <span class="sb-logo-txt">AdSpy<span>Pro</span></span>
+    <span class="sb-logo-ver">v5.1.7</span>
   </div>
-  <div class="tb-btn" onclick="toggleScan()">↻ Scan</div>
-  <div class="tb-btn" onclick="toggleScan()">⚡ Filter ✓</div>
-  <div class="tb-btn">🎯 Compete</div>
-  <div class="tb-btn count-btn">⭐ <span id="totalCount">0</span></div>
-  <div class="tb-btn active-btn" id="lgBtn" onclick="toggleLarge()">■ Large</div>
-  <div class="tb-btn" onclick="exportCSV()">↑ Export</div>
-  <div class="tb-btn" style="color:#ff9933;border-color:#3a2a10;background:#181008">🖼 Gallery</div>
-  <div class="tb-btn">▶ Live</div>
-  <div class="tb-btn auto-btn">⬛ Auto</div>
-  <div class="tb-bolt">⚡</div>
-  <div class="tb-trash" onclick="clearAll()">🗑</div>
-  <div class="api-status-row">
-    <div class="api-dot" id="apiDot"></div>
-    <span class="api-txt" id="apiTxt">Not connected</span>
-  </div>
+
+  <div class="sb-sec">Main</div>
+  <div class="sb-item on" data-page="dashboard" onclick="nav(this)"><span class="ico">📊</span>Dashboard<span class="sb-cnt" id="sb-total">0</span></div>
+  <div class="sb-item" data-page="search" onclick="nav(this)"><span class="ico">🔍</span>Search</div>
+  <div class="sb-item" data-page="totalads" onclick="nav(this)"><span class="ico">📋</span>Total Ads<span class="sb-cnt" id="sb-ads">0</span></div>
+  <div class="sb-item" data-page="hotpicks" onclick="nav(this)"><span class="ico">🔥</span>Hot Picks<span class="sb-cnt" id="sb-hot" style="background:rgba(239,68,68,.15);color:#ef4444">0</span></div>
+
+  <div class="sb-sec">Tools</div>
+  <div class="sb-item" data-page="domain" onclick="nav(this)"><span class="ico">🌐</span>Domain</div>
+  <div class="sb-item" data-page="archive" onclick="nav(this)"><span class="ico">📦</span>Archive</div>
+  <div class="sb-item" data-page="favorites" onclick="nav(this)"><span class="ico">⭐</span>Favorites<span class="sb-cnt" id="sb-fav">0</span></div>
+  <div class="sb-item" data-page="dupes" onclick="nav(this)"><span class="ico">🔁</span>Dupes</div>
+  <div class="sb-item" data-page="batches" onclick="nav(this)"><span class="ico">⚡</span>Batches</div>
+
+  <div class="sb-sec">Views</div>
+  <div class="sb-item" data-page="gridview" onclick="nav(this)"><span class="ico">⊞</span>Grid View</div>
+  <div class="sb-item" data-page="listview" onclick="nav(this)"><span class="ico">☰</span>List View</div>
+
+  <div class="sb-sec">Account</div>
+  <div class="sb-item" data-page="select" onclick="nav(this)"><span class="ico">✓</span>Select</div>
+  <div class="sb-item" data-page="backup" onclick="nav(this)"><span class="ico">💾</span>Backup</div>
+  <div class="sb-item" data-page="profile" onclick="nav(this)"><span class="ico">👤</span>Profile</div>
 </div>
 
-<!-- SCAN PANEL -->
-<div class="scan-panel" id="scanPanel">
-  <div class="sp-row">
-    <div class="sp-field" style="flex:1.5">
-      <span class="sp-label">Access Token</span>
-      <input type="password" class="sp-input" id="tok" placeholder="EAABsbCS...your token">
+<!-- MAIN -->
+<div class="main">
+  <!-- TOPBAR -->
+  <div class="tb">
+    <div class="tb-title" id="pageTitle">Dashboard</div>
+    <div class="tb-search">
+      <span class="tb-search-ico">🔍</span>
+      <input type="text" placeholder="Search ads, products, stores..." id="globalSearch" oninput="globalSearchFn()">
     </div>
-    <div class="sp-field" style="flex:2">
-      <span class="sp-label">Search Query</span>
-      <input type="text" class="sp-input" id="qry" placeholder="Islamic t-shirt, POD hoodie...">
-    </div>
-    <div class="sp-field" style="min-width:90px;flex:0.7">
-      <span class="sp-label">Country</span>
-      <select class="sp-input" id="ctr">
-        <option value="US">🇺🇸 US</option>
-        <option value="GB">🇬🇧 UK</option>
-        <option value="AU">🇦🇺 AU</option>
-        <option value="CA">🇨🇦 CA</option>
-        <option value="DE">🇩🇪 DE</option>
-      </select>
-    </div>
-    <div class="sp-field" style="min-width:70px;flex:0.5">
-      <span class="sp-label">Limit</span>
-      <select class="sp-input" id="lim">
-        <option value="25">25</option>
-        <option value="50" selected>50</option>
-        <option value="100">100</option>
-      </select>
-    </div>
-    <div style="display:flex;gap:6px;align-items:flex-end;flex-shrink:0">
-      <button class="sp-btn sp-fetch" onclick="fetchAds()">🔍 Fetch Ads</button>
-      <button class="sp-btn sp-demo" onclick="loadDemo()">Demo</button>
+    <div class="tb-actions">
+      <button class="tb-btn" onclick="loadDemo()">📥 Load Demo</button>
+      <button class="tb-btn prim" onclick="nav(document.querySelector('[data-page=search]'))">+ Fetch Ads</button>
+      <div class="notif">🔔<div class="notif-dot"></div></div>
     </div>
   </div>
-  <div class="sp-guide">
-    <strong>Get Free Token:</strong>
-    1. Go to <a href="https://developers.facebook.com/tools/explorer/" target="_blank">developers.facebook.com/tools/explorer</a>
-    &nbsp;→&nbsp; 2. Add <strong>ads_read</strong> permission &nbsp;→&nbsp;
-    3. Click "Generate Access Token" &nbsp;→&nbsp; 4. Paste above
-  </div>
-</div>
 
-<!-- FILTER ROW -->
-<div class="filter-row">
-  <div class="fr-tag on" data-q="all" onclick="tQF(this)">All</div>
-  <div class="fr-tag testing-tag" data-q="testing" onclick="tQF(this)">🧪 Testing</div>
-  <div class="fr-tag validating-tag" data-q="validating" onclick="tQF(this)">🔬 Validating</div>
-  <div class="fr-tag winning-tag" data-q="winning" onclick="tQF(this)">✅ Winning</div>
-  <div class="fr-tag scaling-tag" data-q="scaling" onclick="tQF(this)">🚀 Scaling</div>
-  <div class="fr-tag cashcow-tag" data-q="cashcow" onclick="tQF(this)">💰 Cash Cow</div>
-  <div class="fr-tag shopify-tag" data-q="shopify" onclick="tQF(this)">🛒 Shopify</div>
-  <div class="fr-tag hot-tag" data-q="hot" onclick="tQF(this)">🔥 HOT</div>
-  <div class="fr-sep"></div>
-  <span class="fr-label">Model:</span>
-  <div class="fr-tag drop-tag" data-q="dropship" onclick="tQF(this)">🚚 Dropship</div>
-  <div class="fr-tag pod-tag" data-q="pod" onclick="tQF(this)">🎁 POD</div>
-  <div class="fr-tag jwl-tag" data-q="jewelry" onclick="tQF(this)">💎 Jewelry</div>
-  <div class="fr-tag digi-tag" data-q="digital" onclick="tQF(this)">⚡ Digital</div>
-  <div class="fr-tag amz-tag" data-q="amazon" onclick="tQF(this)">📦 Amazon</div>
-  <div class="fr-tag sub-tag" data-q="subbox" onclick="tQF(this)">📬 Sub Box</div>
-</div>
+  <!-- CONTENT -->
+  <div class="content">
 
-<!-- BODY -->
-<div class="body-wrap">
+    <!-- ── DASHBOARD ── -->
+    <div class="page on" id="page-dashboard">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-val" id="d-total" style="color:var(--tx)">0</div><div class="stat-lbl">Total Ads</div><div class="stat-delta" id="d-today">+0 today</div></div>
+        <div class="stat-card"><div class="stat-val" id="d-active" style="color:var(--win)">0</div><div class="stat-lbl">Active Ads</div></div>
+        <div class="stat-card"><div class="stat-val" id="d-hot" style="color:var(--hot)">0</div><div class="stat-lbl">🔥 HOT</div></div>
+        <div class="stat-card"><div class="stat-val" id="d-pod" style="color:var(--pod)">0</div><div class="stat-lbl">POD Ads</div></div>
+        <div class="stat-card"><div class="stat-val" id="d-win" style="color:var(--win)">0</div><div class="stat-lbl">Winning+</div></div>
+      </div>
 
-  <!-- SIDEBAR -->
-  <div class="sidebar">
-    <div class="sb-logo"><span>🔍</span><span class="lname">AdSpy Pro</span></div>
+      <div class="analytics-grid">
+        <div class="ana-card">
+          <div class="ana-title">Phase Breakdown</div>
+          <div id="phase-bars"></div>
+        </div>
+        <div class="ana-card">
+          <div class="ana-title">Model Breakdown</div>
+          <div id="model-bars"></div>
+        </div>
+      </div>
 
-    <div class="sb-sec">Phase</div>
-    <div class="sb-item on" data-p="All" onclick="fPhase(this)"><span class="ico">📊</span>All Phases<span class="sb-cnt" id="cp-All">0</span></div>
-    <div class="sb-item" data-p="HOT" onclick="fPhase(this)"><span class="ico">🔥</span>HOT<span class="sb-cnt c-hot" id="cp-HOT">0</span></div>
-    <div class="sb-item" data-p="Cash Cow" onclick="fPhase(this)"><span class="ico">💰</span>Cash Cow<span class="sb-cnt c-cashcow" id="cp-CashCow">0</span></div>
-    <div class="sb-item" data-p="Scaling" onclick="fPhase(this)"><span class="ico">🚀</span>Scaling<span class="sb-cnt c-scaling" id="cp-Scaling">0</span></div>
-    <div class="sb-item" data-p="Winning" onclick="fPhase(this)"><span class="ico">✅</span>Winning<span class="sb-cnt c-winning" id="cp-Winning">0</span></div>
-    <div class="sb-item" data-p="Validating" onclick="fPhase(this)"><span class="ico">🔬</span>Validating<span class="sb-cnt c-validating" id="cp-Validating">0</span></div>
-    <div class="sb-item" data-p="Testing" onclick="fPhase(this)"><span class="ico">🧪</span>Testing<span class="sb-cnt c-testing" id="cp-Testing">0</span></div>
-
-    <div class="sb-sec">Model</div>
-    <div class="sb-item on" data-m="All" onclick="fModel(this)"><span class="ico">📦</span>All Models<span class="sb-cnt" id="cm-All">0</span></div>
-    <div class="sb-item" data-m="POD" onclick="fModel(this)"><span class="ico">🎁</span>POD<span class="sb-cnt c-pod" id="cm-POD">0</span></div>
-    <div class="sb-item" data-m="Dropship" onclick="fModel(this)"><span class="ico">🚚</span>Dropship<span class="sb-cnt c-drop" id="cm-Dropship">0</span></div>
-    <div class="sb-item" data-m="Jewelry" onclick="fModel(this)"><span class="ico">💎</span>Jewelry<span class="sb-cnt c-jwl" id="cm-Jewelry">0</span></div>
-    <div class="sb-item" data-m="Digital" onclick="fModel(this)"><span class="ico">⚡</span>Digital<span class="sb-cnt" id="cm-Digital">0</span></div>
-    <div class="sb-item" data-m="Amazon" onclick="fModel(this)"><span class="ico">📦</span>Amazon<span class="sb-cnt c-cashcow" id="cm-Amazon">0</span></div>
-    <div class="sb-item" data-m="Sub Box" onclick="fModel(this)"><span class="ico">📬</span>Sub Box<span class="sb-cnt c-jwl" id="cm-SubBox">0</span></div>
-
-    <div class="sb-sec">Folders</div>
-    <div class="sb-item"><span class="ico">📁</span>Saved Ads<span class="sb-cnt">0</span></div>
-    <div class="sb-item"><span class="ico">⭐</span>Favorites<span class="sb-cnt">0</span></div>
-  </div>
-
-  <!-- MAIN -->
-  <div class="main-wrap">
-    <!-- STATS -->
-    <div class="stats-row">
-      <div class="stat-item"><div class="stat-val" id="sTotal">0</div><div class="stat-lbl">Total Ads</div></div>
-      <div class="stat-item s-active"><div class="stat-val" id="sActive">0</div><div class="stat-lbl">Active</div></div>
-      <div class="stat-item s-hot"><div class="stat-val" id="sHot">0</div><div class="stat-lbl">🔥 HOT</div></div>
-      <div class="stat-item s-pod"><div class="stat-val" id="sPOD">0</div><div class="stat-lbl">POD</div></div>
-      <div class="stat-item s-win"><div class="stat-val" id="sWin">0</div><div class="stat-lbl">Winning+</div></div>
+      <div class="grid-header"><div class="grid-title">Recent Ads</div></div>
+      <div class="ads-grid" id="dash-grid"></div>
     </div>
 
-    <!-- ADS -->
-    <div class="ads-wrap" id="adsWrap">
-      <div class="empty-wrap" id="emptyWrap">
-        <div class="empty-ico">🔍</div>
-        <h3>AdSpy Pro Ready</h3>
-        <p>Click <strong>Scan</strong> to enter your Meta API token and fetch real ads.<br>Or click <strong>Demo</strong> to load sample data.</p>
+    <!-- ── SEARCH ── -->
+    <div class="page" id="page-search">
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;max-width:600px;margin-bottom:20px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:14px">🔍 Fetch Real Ads from Meta</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Access Token</label>
+          <input type="password" id="s-tok" placeholder="EAABsbCS..." style="width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Search Query</label>
+            <input type="text" id="s-qry" placeholder="Islamic t-shirt..." style="width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif"></div>
+            <div><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Country</label>
+            <select id="s-ctr" style="width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif">
+              <option value="US">🇺🇸 US</option><option value="GB">🇬🇧 UK</option><option value="AU">🇦🇺 AU</option><option value="CA">🇨🇦 CA</option></select></div>
+            <div><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Limit</label>
+            <select id="s-lim" style="width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif">
+              <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="tb-btn prim" style="flex:1;padding:10px" onclick="fetchAds()">🔍 Fetch Ads from Meta</button>
+            <button class="tb-btn" onclick="loadDemo()">Demo Data</button>
+          </div>
+          <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:7px;padding:10px;font-size:10px;color:rgba(59,130,246,.8);line-height:1.7">
+            <strong style="color:var(--acc)">Get Free Token:</strong> developers.facebook.com/tools/explorer → ads_read permission → Generate token
+          </div>
+        </div>
+        <div class="api-status" style="display:flex;align-items:center;gap:6px;margin-top:10px">
+          <div style="width:6px;height:6px;border-radius:50%;background:var(--t3)" id="api-dot"></div>
+          <span style="font-size:10px;color:var(--t3);font-family:'Space Mono',monospace" id="api-txt">Not connected</span>
+        </div>
+      </div>
+      <div class="grid-header"><div class="grid-title">Search Results</div></div>
+      <div class="ads-grid" id="search-grid"><div class="empty"><div class="empty-ico">🔍</div><h3>Enter token & query above</h3><p>Fetch real ads from Meta Ad Library or load demo data.</p></div></div>
+    </div>
+
+    <!-- ── TOTAL ADS ── -->
+    <div class="page" id="page-totalads">
+      <div class="filter-bar">
+        <div class="fb-tag on" data-f="all" onclick="filterAll(this)">All</div>
+        <div class="fb-tag" data-f="Testing" onclick="filterPhase(this)">🧪 Testing</div>
+        <div class="fb-tag" data-f="Validating" onclick="filterPhase(this)">🔬 Validating</div>
+        <div class="fb-tag" data-f="Winning" onclick="filterPhase(this)">✅ Winning</div>
+        <div class="fb-tag" data-f="Scaling" onclick="filterPhase(this)">🚀 Scaling</div>
+        <div class="fb-tag" data-f="Cash Cow" onclick="filterPhase(this)">💰 Cash Cow</div>
+        <div class="fb-tag" data-f="HOT" onclick="filterPhase(this)">🔥 HOT</div>
+        <div class="fb-tag" data-f="Legend" onclick="filterPhase(this)">👑 Legend</div>
+        <div class="fb-sep"></div>
+        <div class="fb-tag" data-f="active" onclick="filterQuick(this,'active')">Active Only</div>
+        <div class="fb-tag" data-f="shopify" onclick="filterQuick(this,'shopify')">Shopify</div>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="gc-btn" onclick="sortAds('date')">Sort: Date</button>
+          <button class="gc-btn" onclick="sortAds('score')">Sort: Score</button>
+          <button class="gc-btn" onclick="exportCSV()">Export CSV</button>
+        </div>
+      </div>
+      <div class="ads-grid" id="total-grid"></div>
+    </div>
+
+    <!-- ── HOT PICKS ── -->
+    <div class="page" id="page-hotpicks">
+      <div class="sec-grid" style="margin-bottom:20px">
+        <div class="sec-card" onclick="filterHot('HOT')"><div class="sec-card-ico">🔥</div><div class="sec-card-title">HOT Ads</div><div class="sec-card-sub" id="hp-hot-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('Winning')"><div class="sec-card-ico">✅</div><div class="sec-card-title">Winning Products</div><div class="sec-card-sub" id="hp-win-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('Scaling')"><div class="sec-card-ico">🚀</div><div class="sec-card-title">Viral Ads</div><div class="sec-card-sub" id="hp-sca-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('Cash Cow')"><div class="sec-card-ico">💰</div><div class="sec-card-title">Cash Cows</div><div class="sec-card-sub" id="hp-cas-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('Legend')"><div class="sec-card-ico">👑</div><div class="sec-card-title">Legends</div><div class="sec-card-sub" id="hp-leg-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('POD')"><div class="sec-card-ico">🎁</div><div class="sec-card-title">AI Recommended</div><div class="sec-card-sub">Top POD ads</div></div>
+      </div>
+      <div class="grid-header"><div class="grid-title" id="hp-grid-title">All Hot Picks</div></div>
+      <div class="ads-grid" id="hot-grid"></div>
+    </div>
+
+    <!-- ── DOMAIN ── -->
+    <div class="page" id="page-domain">
+      <div class="grid-header"><div class="grid-title">Top Performing Domains</div><button class="gc-btn" onclick="exportCSV()">Export</button></div>
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden">
+        <table class="table">
+          <thead><tr><th>#</th><th>Domain</th><th>Ads</th><th>Phase</th><th>Model</th><th>Active</th></tr></thead>
+          <tbody id="domain-tbody"></tbody>
+        </table>
       </div>
     </div>
 
-    <!-- BOTTOM -->
-    <div class="bottom-bar" id="bottomBar">
-      <span style="font-size:11px;color:#445">Export:</span>
-      <div class="exp-btn" onclick="exportCSV()">📊 CSV</div>
-      <div class="exp-btn" onclick="exportJSON()">{ } JSON</div>
-      <span class="exp-cnt" id="expCnt">0 ads collected</span>
-      <div class="clr-btn" onclick="clearAll()">🗑 Clear All</div>
+    <!-- ── ARCHIVE ── -->
+    <div class="page" id="page-archive">
+      <div class="filter-bar">
+        <div class="fb-tag on" onclick="this.classList.add('on')">All Archived</div>
+        <div class="fb-tag" onclick="">Expired Ads</div>
+        <div class="fb-tag" onclick="">Old Campaigns</div>
+      </div>
+      <div class="ads-grid" id="archive-grid"></div>
     </div>
-  </div>
-</div>
+
+    <!-- ── FAVORITES ── -->
+    <div class="page" id="page-favorites">
+      <div class="grid-header"><div class="grid-title">Saved Ads</div></div>
+      <div class="ads-grid" id="fav-grid">
+        <div class="empty"><div class="empty-ico">⭐</div><h3>No favorites yet</h3><p>Click ⭐ on any ad to save it here.</p></div>
+      </div>
+    </div>
+
+    <!-- ── SELECT ── -->
+    <div class="page" id="page-select">
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px">Bulk Actions</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="tb-btn" onclick="selectAll()">✓ Select All</button>
+          <button class="tb-btn" onclick="deselectAll()">✗ Deselect All</button>
+          <button class="tb-btn" onclick="exportSelected()">📊 Export Selected</button>
+          <button class="tb-btn" onclick="deleteSelected()" style="color:var(--hot);border-color:rgba(239,68,68,.3)">🗑 Delete Selected</button>
+          <span style="font-size:11px;color:var(--t3);align-self:center;margin-left:4px" id="sel-count">0 selected</span>
+        </div>
+      </div>
+      <div class="ads-grid" id="select-grid"></div>
+    </div>
+
+    <!-- ── BACKUP ── -->
+    <div class="page" id="page-backup">
+      <div class="grid-header"><div class="grid-title">Backup & Export</div></div>
+      <div class="backup-grid">
+        <div class="bk-card" onclick="exportCSV()"><div class="bk-ico">📊</div><div class="bk-title">Export CSV</div><div class="bk-sub">All ads as spreadsheet</div></div>
+        <div class="bk-card" onclick="exportJSON()"><div class="bk-ico">{ }</div><div class="bk-title">Export JSON</div><div class="bk-sub">Raw data format</div></div>
+        <div class="bk-card" onclick="exportExcel()"><div class="bk-ico">📑</div><div class="bk-title">Export Excel</div><div class="bk-sub">Excel compatible</div></div>
+        <div class="bk-card"><div class="bk-ico">☁️</div><div class="bk-title">Cloud Backup</div><div class="bk-sub">Coming soon</div></div>
+        <div class="bk-card" onclick="clearAll()"><div class="bk-ico">🗑</div><div class="bk-title">Clear All Data</div><div class="bk-sub">Remove all collected ads</div></div>
+        <div class="bk-card"><div class="bk-ico">📥</div><div class="bk-title">Restore Data</div><div class="bk-sub">Import from backup</div></div>
+      </div>
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;max-width:400px;margin-top:8px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Storage Info</div>
+        <div style="font-size:11px;color:var(--t3)">Total ads collected: <strong style="color:var(--tx)" id="bk-count">0</strong></div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">Last updated: <strong style="color:var(--tx)" id="bk-date">—</strong></div>
+      </div>
+    </div>
+
+    <!-- ── DUPES ── -->
+    <div class="page" id="page-dupes">
+      <div class="grid-header"><div class="grid-title">Duplicate Ads</div></div>
+      <div class="ads-grid" id="dupes-grid"></div>
+    </div>
+
+    <!-- ── BATCHES ── -->
+    <div class="page" id="page-batches">
+      <div class="sec-grid">
+        <div class="sec-card" onclick="exportCSV()"><div class="sec-card-ico">📥</div><div class="sec-card-title">Bulk Download</div><div class="sec-card-sub">Download all ads at once</div></div>
+        <div class="sec-card"><div class="sec-card-ico">🏷️</div><div class="sec-card-title">Bulk Tagging</div><div class="sec-card-sub">Tag multiple ads</div></div>
+        <div class="sec-card" onclick="clearAll()"><div class="sec-card-ico">🗑</div><div class="sec-card-title">Bulk Delete</div><div class="sec-card-sub">Delete selected ads</div></div>
+        <div class="sec-card" onclick="exportCSV()"><div class="sec-card-ico">📊</div><div class="sec-card-title">Batch Export</div><div class="sec-card-sub">Export in batches</div></div>
+      </div>
+    </div>
+
+    <!-- ── GRID VIEW ── -->
+    <div class="page" id="page-gridview">
+      <div class="grid-header"><div class="grid-title">Grid View</div>
+        <div class="grid-controls">
+          <button class="gc-btn on" onclick="setGridMode('normal',this)">Normal</button>
+          <button class="gc-btn" onclick="setGridMode('large',this)">Large</button>
+        </div>
+      </div>
+      <div class="ads-grid" id="gv-grid"></div>
+    </div>
+
+    <!-- ── LIST VIEW ── -->
+    <div class="page" id="page-listview">
+      <div class="grid-header"><div class="grid-title">List View</div></div>
+      <div class="ads-grid list" id="lv-grid"></div>
+    </div>
+
+    <!-- ── PROFILE ── -->
+    <div class="page" id="page-profile">
+      <div class="profile-card">
+        <div class="profile-avatar">👤</div>
+        <div class="profile-name">AdSpy Pro User</div>
+        <div class="profile-email">Meta Ad Intelligence Tool v5.1.7</div>
+        <div class="profile-field"><label>API Endpoint</label><input type="text" value="https://adspy-pro-vc7w.onrender.com" readonly></div>
+        <div class="profile-field"><label>GitHub Repo</label><input type="text" value="github.com/ururmi119-debug/adspy-pro" readonly></div>
+        <div class="profile-field"><label>Version</label><input type="text" value="AdSpy Pro v5.1.7 — Advanced AI Engine v2" readonly></div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="tb-btn prim" onclick="toast('Settings saved!','ok')">Save Settings</button>
+          <button class="tb-btn" style="color:var(--hot);border-color:rgba(239,68,68,.3)" onclick="clearAll()">Clear All Data</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
 
 <script>
-// ── STATE ──────────────────────────────────────────────────────────────────
-let ads = [], pF = 'All', mF = 'All', qFs = new Set(), isLarge = true, scanOpen = false;
+// ═══════════════════════════════════
+// STATE
+// ═══════════════════════════════════
+let ads = [], favs = new Set(), selectedIds = new Set();
+let currentPhaseFilter = 'all', currentQuickFilter = null, currentSort = 'date';
+let gridMode = 'normal';
 
-// Auto-detect backend URL
-const API = window.location.origin;
+const PHASE_COLORS = {HOT:'#ef4444',Legend:'#fbbf24','Cash Cow':'#f59e0b',Scaling:'#3b82f6',Winning:'#22c55e',Validating:'#8b5cf6',Testing:'#475569'};
+const MODEL_COLORS = {POD:'#06b6d4',Dropship:'#f97316',Jewelry:'#ec4899',Digital:'#10b981',Amazon:'#f59e0b','Sub Box':'#ec4899'};
 
-const PHASE_STYLE = {
-  'HOT':       { bg: '#3a0a0a', col: '#ff6666' },
-  'Cash Cow':  { bg: '#2a1800', col: '#ffaa33' },
-  'Scaling':   { bg: '#08182a', col: '#4499ff' },
-  'Winning':   { bg: '#08200e', col: '#33cc66' },
-  'Validating':{ bg: '#180a28', col: '#aa66ff' },
-  'Testing':   { bg: '#181818', col: '#777' }
-};
+// ═══════════════════════════════════
+// AI ENGINE
+// ═══════════════════════════════════
+function calcScore(days, dups, countries) {
+  let s = 0;
+  if(days>=181)s+=30;else if(days>=91)s+=25;else if(days>=31)s+=20;else if(days>=11)s+=15;else if(days>=4)s+=10;else s+=5;
+  if(dups>=30)s+=30;else if(dups>=11)s+=20;else if(dups>=4)s+=10;else if(dups>=2)s+=5;
+  if(countries>=15)s+=30;else if(countries>=6)s+=20;else if(countries>=2)s+=10;
+  if(days>=90)s+=30;else if(days>=60)s+=20;else if(days>=30)s+=10;
+  return s;
+}
+function detectPhase(days,dups,countries,score) {
+  if(days<=14&&dups>=10&&countries>=3)return'HOT';
+  if(days>180&&score>150)return'Legend';
+  if(days>90&&score>110)return'Cash Cow';
+  if(score>=70&&(countries>3||dups>5))return'Scaling';
+  if(score>=40&&days>=11)return'Winning';
+  if(score>=20&&days<=10)return'Validating';
+  return'Testing';
+}
+function detectModel(text) {
+  const t=(text||'').toLowerCase();
+  const s={POD:['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','tshirt','hoodie','mug','poster','shirt','calligraphy','hijab','quran','mom','dad','dog','cat','faith'].filter(k=>t.includes(k)).length,Dropship:['free shipping','order now','limited stock','buy now','ships from','worldwide'].filter(k=>t.includes(k)).length,Jewelry:['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond','crystal'].filter(k=>t.includes(k)).length,Digital:['download','ebook','course','digital','template','preset','canva'].filter(k=>t.includes(k)).length,Amazon:['amazon','prime','asin'].filter(k=>t.includes(k)).length,'Sub Box':['subscribe','subscription','monthly box','box club'].filter(k=>t.includes(k)).length};
+  const best=Object.entries(s).sort((a,b)=>b[1]-a[1]);
+  return best[0][1]>0?best[0][0]:'POD';
+}
 
-// ── FETCH FROM BACKEND ─────────────────────────────────────────────────────
+// ═══════════════════════════════════
+// FETCH
+// ═══════════════════════════════════
 async function fetchAds() {
-  const tok = document.getElementById('tok').value.trim();
-  const q   = document.getElementById('qry').value.trim();
-  if (!tok) { toast('Access Token দাও!', 'err'); return; }
-  if (!q)   { toast('Search query দাও!', 'err'); return; }
-
-  const country = document.getElementById('ctr').value;
-  const limit   = document.getElementById('lim').value;
-
-  showLoad('Connecting to Meta Ad Library...', 'Verifying token...');
-
+  const tok = document.getElementById('s-tok').value.trim();
+  const q   = document.getElementById('s-qry').value.trim();
+  if(!tok){toast('Enter Access Token!','err');return;}
+  if(!q){toast('Enter search query!','err');return;}
+  setApiSt('connecting','Connecting...');
+  const country = document.getElementById('s-ctr').value;
+  const limit   = document.getElementById('s-lim').value;
   try {
-    // First verify token
-    const vr = await fetch(`${API}/api/verify-token?access_token=${encodeURIComponent(tok)}`);
-    const vd = await vr.json();
-    if (!vd.valid) throw new Error('Invalid token: ' + (vd.error || 'Check your token'));
-
-    updateLoad(`Fetching ads for "${q}"...`, 'Scanning Meta Ad Library...');
-
-    const url = `${API}/api/ads?` + new URLSearchParams({
-      access_token: tok, search_terms: q,
-      country, limit
-    });
+    const url = `${window.location.origin}/api/ads?` + new URLSearchParams({access_token:tok,search_terms:q,country,limit});
     const r = await fetch(url);
     const d = await r.json();
-    if (d.error) throw new Error(d.error);
-
-    const newAds = dedup(d.ads || []);
+    if(d.error) throw new Error(d.error);
+    const newAds = dedup(d.ads||[]);
     ads = [...ads, ...newAds];
-
-    updateLoad(`Processing ${ads.length} ads...`, 'Applying phase & model detection...');
-    await sleep(500);
-
-    hideLoad();
+    setApiSt('ok',`Connected · ${ads.length} ads`);
     updateAll();
-    setApiSt('ok', `Connected · ${ads.length} ads`);
-    toast(`✅ ${d.ads.length} ads fetched!`, 'ok');
-    document.getElementById('scanPanel').classList.remove('show');
-    scanOpen = false;
-
-  } catch (e) {
-    hideLoad();
-    setApiSt('err', 'Error');
-    toast('❌ ' + e.message.slice(0, 80), 'err');
+    toast(`${d.ads.length} ads fetched!`,'ok');
+  } catch(e) {
+    setApiSt('err','Error');
+    toast(e.message.slice(0,60),'err');
   }
 }
 
-function dedup(n) {
-  const ex = new Set(ads.map(a => a.id));
-  return n.filter(a => !ex.has(a.id));
-}
+function dedup(n){const ex=new Set(ads.map(a=>a.id));return n.filter(a=>!ex.has(a.id));}
 
-// ── DEMO DATA ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════
+// DEMO DATA
+// ═══════════════════════════════════
 function loadDemo() {
-  showLoad('Applying large creative...', 'Laying out ad cards');
-  setTimeout(() => {
-    ads = [
-      mk('IslamicTeesCo','Premium Islamic quote t-shirts. Custom prints with beautiful calligraphy. Free shipping over $35!','islamictees.myshopify.com',72,true,true,'Image'),
-      mk('MotivateWear','Wear your motivation! 100% cotton hoodies with powerful quotes. Limited edition drops every week.','motivatewear.com',45,true,true,'Video'),
-      mk('TeacherGiftShop','The perfect gift for your favorite teacher! Custom mugs, totes & t-shirts. Personalize today!','teachergifts.myshopify.com',28,true,true,'Carousel'),
-      mk('NurseLifeStore','For nurses who love what they do. Exclusive nurse appreciation collection. Ships in 3 days.','nurselife.com/shop',18,true,false,'Image'),
-      mk('SilverMoonJewelry','Handcrafted silver necklaces & rings. Each piece tells a story. Free engraving on all orders!','silvermoon.myshopify.com',95,false,true,'Image'),
-      mk('QuranVersePrints','Beautiful Quran verse wall art for your home. Premium quality canvas prints. Worldwide shipping.','quranprints.com',60,true,false,'Image'),
-      mk('DigitalTemplatesPro','500+ Canva templates for social media. One-time purchase, lifetime access. Download instantly!','digitaltemplates.gumroad.com',12,true,false,'Video'),
-      mk('CrystalDropShip','Healing crystals & gemstones delivered to your door. 100% authentic, ethically sourced.','crystalstore.myshopify.com',8,true,true,'Carousel'),
-      mk('MindfulMugs','Start your morning right with a motivational mug. Ceramic, dishwasher safe, ships in 2 days.','mindfulmugs.myshopify.com',35,true,true,'Image'),
-      mk('HijabFashionStore','Modern hijab styles for the contemporary Muslim woman. Breathable fabric, vibrant new colors!','hijabfashion.com/new',50,true,false,'Carousel'),
-      mk('SnackBoxMonthly','Discover new snacks every month! Curated international snack boxes. First box 50% off!','snackboxmonthly.com/subscribe',42,true,false,'Video'),
-      mk('AmazonFindsUS','Top-rated Amazon products you need. Prime shipping, best deals every day!','amazon.com/shop/finds',5,true,false,'Video'),
-    ];
-    hideLoad();
-    updateAll();
-    setApiSt('ok', `Demo · ${ads.length} ads`);
-    toast(`${ads.length} demo ads loaded!`, 'ok');
-  }, 1800);
-}
-
-function mk(page, text, url, days, isActive, isShopify, type) {
-  const phase = days>=60&&isActive?'HOT':days>=30&&isActive?'Scaling':days>=14&&isActive?'Winning':days>=7?'Validating':'Testing';
-  if(!isActive&&days>90) phase='Cash Cow';
-  const t=(text+' '+page+' '+url).toLowerCase();
-  const sc={POD:['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','tshirt','hoodie','mug','poster','shirt','hijab','quran'],Dropship:['free shipping','order now','limited stock'],Jewelry:['necklace','ring','bracelet','jewelry','pendant','gold','silver','gemstone'],Digital:['download','ebook','course','digital','template','preset','canva'],Amazon:['amazon','prime'],['Sub Box']:['subscribe','subscription','monthly box','box club']};
-  let model='POD',best=0;
-  for(const[m,kws]of Object.entries(sc)){const s=kws.filter(k=>t.includes(k)).length;if(s>best){best=s;model=m;}}
-  return {id:'demo_'+Math.random().toString(36).slice(2),pageName:page,adText:text,landingUrl:url,runningDays:days,isActive,isShopify,creativeType:type,startDate:new Date(Date.now()-days*864e5).toLocaleDateString('en-US'),phase,model,score:Math.min(30+(isActive?30:0)+(days>=30?25:0)+(isShopify?15:0),100),impressions:'N/A',countries:'US'};
-}
-
-// ── RENDER ────────────────────────────────────────────────────────────────
-function render() {
-  const wrap = document.getElementById('adsWrap');
-  const phaseMap = { testing:'Testing', validating:'Validating', winning:'Winning', scaling:'Scaling', cashcow:'Cash Cow', hot:'HOT' };
-  const modelMap = { dropship:'Dropship', pod:'POD', jewelry:'Jewelry', digital:'Digital', amazon:'Amazon', subbox:'Sub Box' };
-
-  let f = ads.filter(a => {
-    if (pF !== 'All' && a.phase !== pF) return false;
-    if (mF !== 'All' && a.model !== mF) return false;
-    if (!qFs.has('all') && qFs.size > 0) {
-      let pass = false;
-      for (const q of qFs) {
-        if (q === 'shopify' && a.isShopify) { pass = true; break; }
-        if (phaseMap[q] && a.phase === phaseMap[q]) { pass = true; break; }
-        if (modelMap[q] && a.model === modelMap[q]) { pass = true; break; }
-      }
-      if (!pass) return false;
-    }
-    return true;
+  const raw=[
+    {pageName:"IslamicTeesCo",adText:"Premium Islamic quote t-shirts. Custom prints with beautiful calligraphy. Free shipping over $35!",landingUrl:"islamictees.myshopify.com",runningDays:72,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK, CA",countryCount:3,impressions:"120K–180K",duplicateCount:8},
+    {pageName:"MotivateWear",adText:"Wear your motivation! 100% cotton hoodies with powerful quotes. Limited edition drops every week.",landingUrl:"motivatewear.com",runningDays:45,isActive:true,isShopify:true,creativeType:"Video",countries:"US, AU",countryCount:2,impressions:"80K–120K",duplicateCount:5},
+    {pageName:"TeacherGiftShop",adText:"The perfect gift for your favorite teacher! Custom mugs, totes & t-shirts. Personalize today!",landingUrl:"teachergifts.myshopify.com",runningDays:28,isActive:true,isShopify:true,creativeType:"Carousel",countries:"US",countryCount:1,impressions:"40K–60K",duplicateCount:3},
+    {pageName:"NurseLifeStore",adText:"For nurses who love what they do. Exclusive nurse appreciation collection. Ships in 3 days.",landingUrl:"nurselife.com/shop",runningDays:18,isActive:true,isShopify:false,creativeType:"Image",countries:"US, CA",countryCount:2,impressions:"25K–40K",duplicateCount:2},
+    {pageName:"SilverMoonJewelry",adText:"Handcrafted silver necklaces & rings. Each piece tells a story. Free engraving on all orders!",landingUrl:"silvermoon.myshopify.com",runningDays:95,isActive:false,isShopify:true,creativeType:"Image",countries:"US, UK",countryCount:2,impressions:"200K–300K",duplicateCount:12},
+    {pageName:"QuranVersePrints",adText:"Beautiful Quran verse wall art for your home. Premium quality canvas prints. Worldwide shipping.",landingUrl:"quranprints.com",runningDays:60,isActive:true,isShopify:false,creativeType:"Image",countries:"US, UK, AU, CA",countryCount:4,impressions:"150K–200K",duplicateCount:15},
+    {pageName:"DigitalTemplatesPro",adText:"500+ Canva templates for social media. One-time purchase, lifetime access. Download instantly!",landingUrl:"digitaltemplates.gumroad.com",runningDays:12,isActive:true,isShopify:false,creativeType:"Video",countries:"US",countryCount:1,impressions:"15K–25K",duplicateCount:1},
+    {pageName:"CrystalDropShip",adText:"Healing crystals & gemstones delivered to your door. 100% authentic, ethically sourced.",landingUrl:"crystalstore.myshopify.com",runningDays:8,isActive:true,isShopify:true,creativeType:"Carousel",countries:"US, AU",countryCount:2,impressions:"8K–15K",duplicateCount:1},
+    {pageName:"MindfulMugs",adText:"Start your morning right with a motivational mug. Ceramic, dishwasher safe, ships in 2 days.",landingUrl:"mindfulmugs.myshopify.com",runningDays:35,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK",countryCount:2,impressions:"55K–80K",duplicateCount:4},
+    {pageName:"HijabFashionStore",adText:"Modern hijab styles for the contemporary Muslim woman. Breathable fabric, vibrant new colors!",landingUrl:"hijabfashion.com/new",runningDays:50,isActive:true,isShopify:false,creativeType:"Carousel",countries:"US, UK, CA, MY",countryCount:4,impressions:"90K–130K",duplicateCount:7},
+    {pageName:"SnackBoxMonthly",adText:"Discover new snacks every month! Curated international snack boxes. First box 50% off!",landingUrl:"snackboxmonthly.com/subscribe",runningDays:42,isActive:true,isShopify:false,creativeType:"Video",countries:"US, CA",countryCount:2,impressions:"70K–100K",duplicateCount:3},
+    {pageName:"DogMomStore",adText:"For the ultimate dog mom! Custom tees, mugs & accessories. Show your pup some love!",landingUrl:"dogmomstore.myshopify.com",runningDays:200,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK, AU, CA, DE",countryCount:5,impressions:"500K–1M",duplicateCount:35},
+  ];
+  ads = raw.map((d,i)=>{
+    const score = calcScore(d.runningDays, d.duplicateCount||1, d.countryCount||1);
+    const phase = detectPhase(d.runningDays, d.duplicateCount||1, d.countryCount||1, score);
+    const model = detectModel(d.adText+' '+d.pageName+' '+d.landingUrl);
+    return {id:`demo_${i}`, ...d, phase, model, score, confidence:Math.round(Math.min(score/150,1)*100), startDate:new Date(Date.now()-d.runningDays*864e5).toLocaleDateString('en-US')};
   });
-
-  if (!f.length && !ads.length) {
-    wrap.innerHTML = `<div class="empty-wrap"><div class="empty-ico">🔍</div><h3>AdSpy Pro Ready</h3><p>Click <strong>Scan</strong> to enter your Meta API token and fetch real ads.<br>Or click <strong>Demo</strong> to load sample data.</p></div>`;
-    return;
-  }
-  if (!f.length) {
-    wrap.innerHTML = `<div class="empty-wrap"><div class="empty-ico">🔎</div><h3>No results</h3><p>Try adjusting your filters.</p></div>`;
-    return;
-  }
-
-  const grid = `<div class="ads-grid ${isLarge ? 'large' : ''}">${f.map(cardHTML).join('')}</div>`;
-  wrap.innerHTML = grid;
+  updateAll();
+  toast(`${ads.length} demo ads loaded!`,'ok');
 }
 
-function cardHTML(a) {
-  const ph = PHASE_STYLE[a.phase] || { bg: '#181818', col: '#777' };
-  const typeIco = a.creativeType?.includes('Video') ? '🎬' : a.creativeType?.includes('Carousel') ? '🎠' : '🖼️';
-  return `<div class="ad-card" onclick="openMod('${a.id}')">
-    <div class="ad-img">${typeIco}
-      <div class="phase-badge" style="background:${ph.bg};color:${ph.col}">${a.phase}</div>
-      <div class="model-badge">${a.model}</div>
-      <div class="score-bar" style="width:${a.score||50}%"></div>
+// ═══════════════════════════════════
+// RENDER
+// ═══════════════════════════════════
+function cardHTML(a, mode='normal', selectable=false) {
+  const pc = PHASE_COLORS[a.phase]||'#475569';
+  const typeIco = a.creativeType?.includes('Video')?'🎬':a.creativeType?.includes('Carousel')?'🎠':'🖼️';
+  const isFav = favs.has(a.id);
+  const isSel = selectedIds.has(a.id);
+  const imgH = mode==='large'?'ad-img lg':'ad-img';
+  const selCheck = selectable ? `<div style="position:absolute;top:8px;left:8px;width:18px;height:18px;border-radius:4px;background:${isSel?'var(--acc)':'rgba(0,0,0,.5)'};border:1.5px solid ${isSel?'var(--acc)':'rgba(255,255,255,.3)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff" onclick="event.stopPropagation();toggleSelect('${a.id}')">${isSel?'✓':''}</div>` : '';
+  return `<div class="ad-card" onclick="${selectable?`toggleSelect('${a.id}')`:`openMod('${a.id}')`}">
+    <div class="${imgH}">${typeIco}
+      ${selectable ? selCheck : `<div class="phase-b" style="background:${pc}22;color:${pc};border:1px solid ${pc}44">${a.phase}</div>`}
+      <div class="model-b">${a.model}</div>
+      <div class="conf-b">${a.confidence||0}%</div>
+      <div class="score-line" style="width:${Math.min((a.score||0)/1.5,100)}%"></div>
     </div>
     <div class="ad-body">
       <div class="ad-page">📄 ${a.pageName}</div>
-      <div class="ad-text">${a.adText || 'No ad text'}</div>
+      <div class="ad-txt">${a.adText||'No ad text'}</div>
       <div class="ad-chips">
-        ${a.isActive ? '<span class="chip active">● Active</span>' : '<span class="chip inactive">○ Inactive</span>'}
-        ${a.isShopify ? '<span class="chip shopify">Shopify</span>' : ''}
-        <span class="chip">${a.creativeType || 'Image'}</span>
-        ${a.impressions && a.impressions !== 'N/A' ? `<span class="chip">${a.impressions}</span>` : ''}
+        ${a.isActive?'<span class="chip act">● Active</span>':'<span class="chip inact">○ Inactive</span>'}
+        ${a.isShopify?'<span class="chip shp">Shopify</span>':''}
+        <span class="chip">${a.creativeType||'Image'}</span>
       </div>
       <div class="ad-foot">
-        <div class="ad-days">Running: <strong>${a.runningDays}d</strong> · ${a.startDate}</div>
+        <div class="ad-days">Running: <strong>${a.runningDays}d</strong> · ${a.startDate||'—'}</div>
         <div class="ad-acts">
-          <div class="act-btn" onclick="event.stopPropagation();openMod('${a.id}')" title="Details">👁</div>
-          ${a.landingUrl ? `<div class="act-btn" onclick="event.stopPropagation();window.open('https://${a.landingUrl}','_blank')" title="Visit">🔗</div>` : ''}
-          ${a.snapshotUrl ? `<div class="act-btn" onclick="event.stopPropagation();window.open('${a.snapshotUrl}','_blank')" title="View Ad">📢</div>` : ''}
+          <div class="aact" title="Details" onclick="event.stopPropagation();openMod('${a.id}')">👁</div>
+          <div class="aact" title="${isFav?'Unfavorite':'Favorite'}" onclick="event.stopPropagation();toggleFav('${a.id}',this)">${isFav?'⭐':'☆'}</div>
+          ${a.landingUrl?`<div class="aact" title="Visit" onclick="event.stopPropagation();window.open('https://${a.landingUrl}','_blank')">🔗</div>`:''}
         </div>
       </div>
     </div>
   </div>`;
 }
 
-// ── MODAL ─────────────────────────────────────────────────────────────────
+function listCardHTML(a) {
+  const pc = PHASE_COLORS[a.phase]||'#475569';
+  return `<div class="ad-card list-card" onclick="openMod('${a.id}')">
+    <div class="ad-img" style="height:80px;width:180px">🖼️
+      <div class="phase-b" style="background:${pc}22;color:${pc};border:1px solid ${pc}44;font-size:8px">${a.phase}</div>
+    </div>
+    <div class="ad-body" style="padding:10px 14px">
+      <div class="ad-page">📄 ${a.pageName}</div>
+      <div class="ad-txt">${a.adText||'No ad text'}</div>
+      <div class="ad-chips">
+        ${a.isActive?'<span class="chip act">● Active</span>':'<span class="chip inact">○ Inactive</span>'}
+        <span class="chip">${a.model}</span>
+        <span class="chip">${a.creativeType||'Image'}</span>
+      </div>
+    </div>
+    <div class="ad-foot" style="flex-direction:column;gap:5px;padding:10px 12px;border-top:none;border-left:1px solid var(--b1);min-width:120px">
+      <div style="font-size:11px;color:var(--acc);font-family:'Space Mono',monospace;font-weight:700">${a.runningDays}d</div>
+      <div style="font-size:10px;color:var(--t3)">Score: ${a.score||0}</div>
+      <div style="font-size:10px;color:var(--t3)">${a.impressions||'N/A'}</div>
+    </div>
+  </div>`;
+}
+
+function renderGrid(containerId, list, mode='normal', selectable=false) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">📭</div><h3>No ads found</h3><p>Load demo data or fetch from Meta.</p></div>`;
+    return;
+  }
+  el.className = `ads-grid${mode==='large'?' lg':''}${mode==='list'?' list':''}`;
+  el.innerHTML = list.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
+}
+
+// ═══════════════════════════════════
+// UPDATE ALL
+// ═══════════════════════════════════
+function updateAll() {
+  // Stats
+  const active = ads.filter(a=>a.isActive).length;
+  const hot    = ads.filter(a=>a.phase==='HOT').length;
+  const pod    = ads.filter(a=>a.model==='POD').length;
+  const win    = ads.filter(a=>['HOT','Legend','Cash Cow','Scaling','Winning'].includes(a.phase)).length;
+
+  setTxt('d-total', ads.length);
+  setTxt('d-active', active);
+  setTxt('d-hot', hot);
+  setTxt('d-pod', pod);
+  setTxt('d-win', win);
+  setTxt('sb-total', ads.length);
+  setTxt('sb-ads', ads.length);
+  setTxt('sb-hot', hot);
+  setTxt('sb-fav', favs.size);
+  setTxt('bk-count', ads.length);
+  setTxt('bk-date', ads.length ? new Date().toLocaleString() : '—');
+
+  // Sidebar counts
+  document.getElementById('sb-total').textContent = ads.length;
+
+  // Phase bars
+  const phases = ['HOT','Legend','Cash Cow','Scaling','Winning','Validating','Testing'];
+  const pBars = phases.map(p => {
+    const cnt = ads.filter(a=>a.phase===p).length;
+    const pct = ads.length ? Math.round(cnt/ads.length*100) : 0;
+    const col = PHASE_COLORS[p]||'#475569';
+    return `<div class="bar-row"><span class="bar-label" style="font-size:10px">${p}</span><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="bar-val">${cnt}</span></div>`;
+  }).join('');
+  setHTML('phase-bars', pBars);
+
+  // Model bars
+  const models = ['POD','Dropship','Jewelry','Digital','Amazon','Sub Box'];
+  const mBars = models.map(m => {
+    const cnt = ads.filter(a=>a.model===m).length;
+    const pct = ads.length ? Math.round(cnt/ads.length*100) : 0;
+    const col = MODEL_COLORS[m]||'#475569';
+    return `<div class="bar-row"><span class="bar-label" style="font-size:10px">${m}</span><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="bar-val">${cnt}</span></div>`;
+  }).join('');
+  setHTML('model-bars', mBars);
+
+  // Hot picks counts
+  setTxt('hp-hot-cnt', `${hot} ads`);
+  setTxt('hp-win-cnt', `${ads.filter(a=>a.phase==='Winning').length} ads`);
+  setTxt('hp-sca-cnt', `${ads.filter(a=>a.phase==='Scaling').length} ads`);
+  setTxt('hp-cas-cnt', `${ads.filter(a=>a.phase==='Cash Cow').length} ads`);
+  setTxt('hp-leg-cnt', `${ads.filter(a=>a.phase==='Legend').length} ads`);
+
+  // Grids
+  renderGrid('dash-grid', ads.slice(0,8));
+  renderGrid('search-grid', ads.slice(0,12));
+  renderGrid('total-grid', getSortedFiltered());
+  renderGrid('hot-grid', ads.filter(a=>['HOT','Legend','Cash Cow','Scaling','Winning'].includes(a.phase)));
+  renderGrid('gv-grid', ads, gridMode);
+  renderGrid('lv-grid', ads, 'list');
+  renderGrid('archive-grid', ads.filter(a=>!a.isActive));
+  renderGrid('dupes-grid', ads.filter(a=>(a.duplicateCount||1)>1));
+  renderGrid('select-grid', ads, 'normal', true);
+
+  // Domain table
+  buildDomainTable();
+}
+
+function getSortedFiltered() {
+  let f = [...ads];
+  if(currentPhaseFilter !== 'all') f = f.filter(a=>a.phase===currentPhaseFilter);
+  if(currentQuickFilter === 'active') f = f.filter(a=>a.isActive);
+  if(currentQuickFilter === 'shopify') f = f.filter(a=>a.isShopify);
+  if(currentSort === 'score') f.sort((a,b)=>(b.score||0)-(a.score||0));
+  else f.sort((a,b)=>(b.runningDays||0)-(a.runningDays||0));
+  return f;
+}
+
+function buildDomainTable() {
+  const domains = {};
+  ads.forEach(a => {
+    const d = (a.landingUrl||'').split('/')[0]||'unknown';
+    if(!domains[d]) domains[d] = {domain:d, count:0, phase:a.phase, model:a.model, active:0};
+    domains[d].count++;
+    if(a.isActive) domains[d].active++;
+  });
+  const rows = Object.values(domains).sort((a,b)=>b.count-a.count).slice(0,20);
+  const tbody = rows.map((d,i) => {
+    const pc = PHASE_COLORS[d.phase]||'#475569';
+    return `<tr><td>${i+1}</td><td><strong>${d.domain}</strong></td><td>${d.count}</td><td><span class="td-badge" style="background:${pc}22;color:${pc}">${d.phase}</span></td><td>${d.model}</td><td style="color:var(--win)">${d.active}</td></tr>`;
+  }).join('');
+  setHTML('domain-tbody', tbody || '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">No data</td></tr>');
+}
+
+// ═══════════════════════════════════
+// FILTERS & ACTIONS
+// ═══════════════════════════════════
+function filterAll(el) {
+  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  currentPhaseFilter = 'all';
+  currentQuickFilter = null;
+  renderGrid('total-grid', getSortedFiltered());
+}
+function filterPhase(el) {
+  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  currentPhaseFilter = el.dataset.f;
+  currentQuickFilter = null;
+  renderGrid('total-grid', getSortedFiltered());
+}
+function filterQuick(el, key) {
+  const wasOn = el.classList.contains('on');
+  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  if(!wasOn) { el.classList.add('on'); currentQuickFilter = key; currentPhaseFilter = 'all'; }
+  else { currentQuickFilter = null; document.querySelector('#page-totalads .fb-tag[data-f="all"]')?.classList.add('on'); }
+  renderGrid('total-grid', getSortedFiltered());
+}
+function filterHot(phase) {
+  const f = phase==='POD' ? ads.filter(a=>a.model==='POD') : ads.filter(a=>a.phase===phase);
+  document.getElementById('hp-grid-title').textContent = phase + ' Ads';
+  renderGrid('hot-grid', f);
+}
+function sortAds(by) { currentSort=by; renderGrid('total-grid', getSortedFiltered()); toast(`Sorted by ${by}`,'ok'); }
+function setGridMode(mode, btn) {
+  gridMode=mode;
+  document.querySelectorAll('#page-gridview .gc-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderGrid('gv-grid', ads, mode);
+}
+
+// Select
+function toggleSelect(id) {
+  if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+  document.getElementById('sel-count').textContent = `${selectedIds.size} selected`;
+  renderGrid('select-grid', ads, 'normal', true);
+}
+function selectAll() { ads.forEach(a=>selectedIds.add(a.id)); document.getElementById('sel-count').textContent=`${selectedIds.size} selected`; renderGrid('select-grid',ads,'normal',true); }
+function deselectAll() { selectedIds.clear(); document.getElementById('sel-count').textContent='0 selected'; renderGrid('select-grid',ads,'normal',true); }
+function exportSelected() { const sel=ads.filter(a=>selectedIds.has(a.id)); if(!sel.length){toast('Select some ads first!','err');return;} exportData(sel,'csv'); }
+function deleteSelected() { if(!selectedIds.size){toast('Select some ads first!','err');return;} ads=ads.filter(a=>!selectedIds.has(a.id)); selectedIds.clear(); updateAll(); toast('Deleted!','ok'); }
+
+// Favorites
+function toggleFav(id, btn) {
+  if(favs.has(id)) { favs.delete(id); if(btn) btn.textContent='☆'; toast('Removed from favorites','ok'); }
+  else { favs.add(id); if(btn) btn.textContent='⭐'; toast('Added to favorites ⭐','ok'); }
+  setTxt('sb-fav', favs.size);
+  const favAds = ads.filter(a=>favs.has(a.id));
+  renderGrid('fav-grid', favAds);
+}
+
+// Global search
+function globalSearchFn() {
+  const q = document.getElementById('globalSearch').value.toLowerCase();
+  const filtered = !q ? ads : ads.filter(a=>(a.pageName+' '+a.adText+' '+a.landingUrl+' '+a.model+' '+a.phase).toLowerCase().includes(q));
+  renderGrid('dash-grid', filtered.slice(0,8));
+}
+
+// ═══════════════════════════════════
+// MODAL
+// ═══════════════════════════════════
 function openMod(id) {
-  const a = ads.find(x => x.id === id); if (!a) return;
-  const ph = PHASE_STYLE[a.phase] || { bg: '#181818', col: '#777' };
+  const a = ads.find(x=>x.id===id); if(!a) return;
+  const pc = PHASE_COLORS[a.phase]||'#475569';
   document.getElementById('modTitle').textContent = a.pageName;
   const rows = [
-    ['Page', `<strong>${a.pageName}</strong>`],
-    ['Phase', `<span style="background:${ph.bg};color:${ph.col};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">${a.phase}</span>`],
-    ['Model', a.model],
-    ['Status', a.isActive ? '<span style="color:#33cc66">● Active</span>' : '<span style="color:#cc3333">○ Inactive</span>'],
-    ['Start Date', a.startDate],
-    ['Running Days', `${a.runningDays} days`],
-    ['Creative Type', a.creativeType || 'Image'],
-    ['Countries', a.countries || 'N/A'],
-    ['Impressions', a.impressions || 'N/A'],
-    ['Spend', a.spend || 'N/A'],
-    ['Shopify', a.isShopify ? '✅ Yes' : '❌ No'],
-    ['Win Score', `${a.score || 0}/100`],
-    ['Landing Page', a.landingUrl ? `<a href="https://${a.landingUrl}" target="_blank">${a.landingUrl}</a>` : 'N/A'],
-    ['Ad Text', a.adText || 'N/A'],
-    ['Meta ID', `<span style="font-family:monospace;font-size:10px;color:#334">${a.id}</span>`],
+    ['Page',`<strong>${a.pageName}</strong>`],
+    ['Phase',`<span style="background:${pc}22;color:${pc};border:1px solid ${pc}44;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">${a.phase}</span>`],
+    ['Model',a.model],['Status',a.isActive?'<span style="color:var(--win)">● Active</span>':'<span style="color:var(--hot)">○ Inactive</span>'],
+    ['Start Date',a.startDate||'—'],['Running Days',`${a.runningDays} days`],
+    ['AI Score',`${a.score||0}/150`],['Confidence',`${a.confidence||0}%`],
+    ['Creative',a.creativeType||'Image'],['Countries',a.countries||'N/A'],
+    ['Impressions',a.impressions||'N/A'],['Shopify',a.isShopify?'✅ Yes':'❌ No'],
+    ['Duplicates',a.duplicateCount||1],
+    ['Landing Page',a.landingUrl?`<a href="https://${a.landingUrl}" target="_blank">${a.landingUrl}</a>`:'N/A'],
+    ['Ad Text',a.adText||'N/A'],
+    ['Meta ID',`<span style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t3)">${a.id}</span>`],
   ];
-  document.getElementById('modBody').innerHTML = rows.map(([k, v]) =>
-    `<div class="m-row"><div class="m-key">${k}</div><div class="m-val">${v}</div></div>`
-  ).join('');
-  document.getElementById('modalBg').classList.add('show');
+  setHTML('modBody', rows.map(([k,v])=>`<div class="m-row"><div class="m-key">${k}</div><div class="m-val">${v}</div></div>`).join(''));
+  document.getElementById('modBg').classList.add('show');
 }
-function closeMod(e) { if (e.target === document.getElementById('modalBg')) document.getElementById('modalBg').classList.remove('show'); }
+function closeMod(e){if(e.target===document.getElementById('modBg'))document.getElementById('modBg').classList.remove('show');}
 
-// ── FILTERS ───────────────────────────────────────────────────────────────
-function fPhase(el) {
-  document.querySelectorAll('.sidebar .sb-item[data-p]').forEach(x => x.classList.remove('on'));
-  el.classList.add('on'); pF = el.dataset.p; render();
-}
-function fModel(el) {
-  document.querySelectorAll('.sidebar .sb-item[data-m]').forEach(x => x.classList.remove('on'));
-  el.classList.add('on'); mF = el.dataset.m; render();
-}
-function tQF(el) {
-  const q = el.dataset.q;
-  if (q === 'all') {
-    qFs.clear(); qFs.add('all');
-    document.querySelectorAll('.fr-tag').forEach(t => t.classList.remove('on'));
-    el.classList.add('on'); render(); return;
+// ═══════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════
+function exportCSV(){exportData(ads,'csv');}
+function exportJSON(){exportData(ads,'json');}
+function exportExcel(){exportData(ads,'csv');toast('Excel: CSV exported (open in Excel)','ok');}
+function exportData(data, fmt) {
+  if(!data.length){toast('No ads to export!','err');return;}
+  if(fmt==='json'){dl(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'adspy_export.json');}
+  else{
+    const h=['ID','Page','Phase','Model','Active','Start','Days','Score','Confidence','Type','URL','Shopify','Impressions','Countries','Text'];
+    const rows=data.map(a=>[a.id,a.pageName,a.phase,a.model,a.isActive,a.startDate,a.runningDays,a.score,a.confidence+'%',a.creativeType,a.landingUrl,a.isShopify,a.impressions,a.countries,`"${(a.adText||'').replace(/"/g,'""')}"`]);
+    dl(new Blob([[h.join(','),...rows.map(r=>r.join(','))].join('\n')],{type:'text/csv'}),'adspy_export.csv');
   }
-  document.querySelector('.fr-tag[data-q="all"]')?.classList.remove('on');
-  qFs.delete('all');
-  if (qFs.has(q)) { qFs.delete(q); el.classList.remove('on'); }
-  else { qFs.add(q); el.classList.add('on'); }
-  if (!qFs.size) { qFs.add('all'); document.querySelector('.fr-tag[data-q="all"]')?.classList.add('on'); }
-  render();
+  toast(`${fmt.toUpperCase()} exported!`,'ok');
 }
+function dl(blob,name){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
 
-// ── UPDATE ALL ─────────────────────────────────────────────────────────────
-function updateAll() {
-  const phases = ['HOT','Cash Cow','Scaling','Winning','Validating','Testing'];
-  const models = ['POD','Dropship','Jewelry','Digital','Amazon','Sub Box'];
-  document.getElementById('cp-All').textContent = ads.length;
-  document.getElementById('cm-All').textContent = ads.length;
-  document.getElementById('totalCount').textContent = ads.length;
-  phases.forEach(p => {
-    const el = document.getElementById('cp-' + p.replace(' ', ''));
-    if (el) el.textContent = ads.filter(a => a.phase === p).length;
-  });
-  models.forEach(m => {
-    const el = document.getElementById('cm-' + m.replace(' ', ''));
-    if (el) el.textContent = ads.filter(a => a.model === m).length;
-  });
-  document.getElementById('sTotal').textContent  = ads.length;
-  document.getElementById('sActive').textContent = ads.filter(a => a.isActive).length;
-  document.getElementById('sHot').textContent    = ads.filter(a => a.phase === 'HOT').length;
-  document.getElementById('sPOD').textContent    = ads.filter(a => a.model === 'POD').length;
-  document.getElementById('sWin').textContent    = ads.filter(a => ['Winning','Scaling','Cash Cow','HOT'].includes(a.phase)).length;
-  document.getElementById('expCnt').textContent  = `${ads.length} ads collected`;
-  document.getElementById('bottomBar').className = ads.length ? 'bottom-bar show' : 'bottom-bar';
-  render();
-}
+function clearAll(){if(!confirm('Clear all ads?'))return;ads=[];favs.clear();selectedIds.clear();updateAll();toast('Cleared!','ok');}
 
-// ── EXPORT ────────────────────────────────────────────────────────────────
-function exportCSV() {
-  if (!ads.length) { toast('No ads to export!', 'err'); return; }
-  const h = ['ID','Page','Phase','Model','Active','Start','Days','Type','URL','Shopify','Impressions','Score','Text'];
-  const rows = ads.map(a => [a.id,a.pageName,a.phase,a.model,a.isActive,a.startDate,a.runningDays,a.creativeType,a.landingUrl,a.isShopify,a.impressions,a.score,`"${(a.adText||'').replace(/"/g,'""')}"`]);
-  const blob = new Blob([[h.join(','), ...rows.map(r => r.join(','))].join('\n')], { type: 'text/csv' });
-  dl(blob, 'adspy_pro_export.csv');
-  toast('CSV exported!', 'ok');
-}
-function exportJSON() {
-  if (!ads.length) { toast('No ads to export!', 'err'); return; }
-  dl(new Blob([JSON.stringify(ads, null, 2)], { type: 'application/json' }), 'adspy_pro_export.json');
-  toast('JSON exported!', 'ok');
-}
-function dl(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; a.click(); URL.revokeObjectURL(u); }
-
-// ── MISC ──────────────────────────────────────────────────────────────────
-function toggleScan() {
-  scanOpen = !scanOpen;
-  document.getElementById('scanPanel').classList.toggle('show', scanOpen);
-}
-function toggleLarge() {
-  isLarge = !isLarge;
-  document.getElementById('lgBtn').textContent = isLarge ? '■ Large' : '⊞ Grid';
-  render();
-}
-function clearAll() {
-  if (!confirm('Clear all collected ads?')) return;
-  ads = []; pF = 'All'; mF = 'All'; qFs.clear(); qFs.add('all');
-  document.querySelectorAll('.sb-item[data-p]').forEach(x => x.classList.remove('on'));
-  document.querySelector('.sb-item[data-p="All"]')?.classList.add('on');
-  document.querySelectorAll('.sb-item[data-m]').forEach(x => x.classList.remove('on'));
-  document.querySelector('.sb-item[data-m="All"]')?.classList.add('on');
-  document.querySelectorAll('.fr-tag').forEach(t => t.classList.remove('on'));
-  document.querySelector('.fr-tag[data-q="all"]')?.classList.add('on');
+// ═══════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════
+const pageTitles = {dashboard:'Dashboard',search:'Search',totalads:'Total Ads',hotpicks:'Hot Picks',domain:'Domain',archive:'Archive',favorites:'Favorites',select:'Select',backup:'Backup',dupes:'Dupes',batches:'Batches',gridview:'Grid View',listview:'List View',profile:'Profile'};
+function nav(el) {
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('on'));
+  el.classList.add('on');
+  const page = el.dataset.page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.getElementById('page-'+page)?.classList.add('on');
+  document.getElementById('pageTitle').textContent = pageTitles[page]||page;
   updateAll();
-  setApiSt('', 'Not connected');
-  toast('All cleared', 'ok');
 }
-function setApiSt(type, txt) {
-  const d = document.getElementById('apiDot');
-  d.className = 'api-dot' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
-  document.getElementById('apiTxt').textContent = txt;
-  document.getElementById('apiTxt').style.color = type === 'ok' ? '#225533' : type === 'err' ? '#552222' : '#334';
-}
-function showLoad(m, s) { document.getElementById('loadMain').textContent = m; document.getElementById('loadSub').textContent = s; document.getElementById('loadBg').classList.add('show'); }
-function updateLoad(m, s) { document.getElementById('loadMain').textContent = m; if(s) document.getElementById('loadSub').textContent = s; }
-function hideLoad() { document.getElementById('loadBg').classList.remove('show'); }
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-let tT;
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'toast show ' + (type||'');
-  clearTimeout(tT); tT = setTimeout(() => el.classList.remove('show'), 3200);
-}
+
+// ═══════════════════════════════════
+// UTILS
+// ═══════════════════════════════════
+function setApiSt(t,txt){const d=document.getElementById('api-dot');const l=document.getElementById('api-txt');d.style.background=t==='ok'?'var(--win)':t==='err'?'var(--hot)':'var(--cas)';l.textContent=txt;l.style.color=t==='ok'?'var(--win)':t==='err'?'var(--hot)':'var(--t3)';}
+function setTxt(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
+function setHTML(id,v){const el=document.getElementById(id);if(el)el.innerHTML=v;}
+let tT; function toast(msg,type){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+(type||'');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),3000);}
+
+// Init
+updateAll();
 </script>
 </body>
 </html>
