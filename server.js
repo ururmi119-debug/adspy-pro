@@ -38,6 +38,30 @@ function sendAlert(ip) {
     text: 'Unauthorized access attempt from IP: ' + ip
   });
 }
+
+function authMiddleware(req, res, next) {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) {
+    sendAlert(req.ip);
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    sendAlert(req.ip);
+    res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+function sendAlert(ip) {
+  transporter.sendMail({
+    from: 'urmiislamomi119@gmail.com',
+    to: NOTIFY_EMAIL,
+    subject: 'AdSpy Pro - Unauthorized Access!',
+    text: 'Unauthorized access attempt from IP: ' + ip
+  });
+}
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
