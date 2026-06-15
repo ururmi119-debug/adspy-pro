@@ -29,20 +29,20 @@ app.get('/api/ads', async (req, res) => {
     'delivery_by_region','estimated_audience_size','impressions','spend','currency'
   ].join(',');
 
-  const params = {
-    access_token: '350685531728|62f8ce9f74b12f84c123cc726f9958e3',
+  const params = new URLSearchParams({
+    search_type: 'KEYWORD_UNORDERED',
+    ad_reached_countries: JSON.stringify([country]),
     search_terms,
     ad_type,
-    ad_reached_countries: JSON.stringify([country]),
     fields,
-    limit: Math.min(parseInt(limit), 100),
-  };
-  if (after) params.after = after;
+    limit: String(Math.min(parseInt(limit), 100)),
+  });
+  if (after) params.append('after', after);
 
   try {
     const response = await axios.get(
-      'https://graph.facebook.com/v21.0/ads_archive',
-      { params, timeout: 15000 }
+      `https://www.facebook.com/ads/library/api/?${params.toString()}`,
+      { timeout: 15000 }
     );
     const raw = response.data.data || [];
     const paging = response.data.paging || {};
@@ -54,7 +54,6 @@ app.get('/api/ads', async (req, res) => {
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
-
 function calcAdvancedScore(ad) {
   let score = 0;
   const days = ad.runningDays || 0;
