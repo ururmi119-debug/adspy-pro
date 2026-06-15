@@ -1,293 +1,41 @@
 const express = require('express');
-const cors = require('cors');
 const axios = require('axios');
-const path = require('path');
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(express.static('public'));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── META AD LIBRARY API PROXY ───────────────────────────────────────────────
-app.get('/api/ads', async (req, res) => {
-  const {
-    search_terms,
-    ad_type = 'ALL',
-    country = 'US',
-    limit = 50,
-    after
-  } = req.query;
-
-  if (!search_terms) return res.status(400).json({ error: 'search_terms is required' });
-
-  const fields = [
-    'id','ad_creation_time','ad_delivery_start_time','ad_delivery_stop_time',
-    'ad_snapshot_url','page_name','page_id','creative_bodies','creative_link_titles',
-    'creative_link_descriptions','creative_link_captions','publisher_platforms',
-    'delivery_by_region','estimated_audience_size','impressions','spend','currency'
-  ].join(',');
-
-  const params = {
-    access_token: '350685531728|62f8ce9f74b12f84c123cc726f9958e3',
-    search_terms,
-    ad_type,
-    ad_reached_countries: JSON.stringify([country]),
-    fields,
-    limit: Math.min(parseInt(limit), 100),
-  };
-  if (after) params.after = after;
-
+// ✅ No token needed - Public endpoint
+app.get('/api/search', async (req, res) => {
+  const { keyword, country = 'US', limit = 20 } = req.query;
+  
   try {
     const response = await axios.get(
-      'https://graph.facebook.com/v21.0/ads_archive',
-      { params, timeout: 15000 }
-    );
-    const raw = response.data.data || [];
-    const paging = response.data.paging || {};
-    const ads = raw.map(ad => processAd(ad));
-    res.json({ ads, total: ads.length, next_cursor: paging.cursors?.after || null, has_more: !!paging.next });
-  } catch (err) {
-    const fbError = err.response?.data?.error;
-    if (fbError) return res.status(400).json({ error: fbError.message, code: fbError.code });
-    res.status(500).json({ error: 'Server error: ' + err.message });
-  }
-});
-// ═══════════════════════════════════════════════════════════════
-// ADVANCED AI CLASSIFICATION ENGINE v2
-// ═══════════════════════════════════════════════════════════════
-
-function calcAdvancedScore(ad) {
-  let score = 0;
-  const days = ad.runningDays || 0;
-  const duplicates = ad.duplicateCount || 1;
-  const countries = ad.countryCount || 1;
-  const variations = ad.variationCount || 1;
-  const pageAds = ad.pageAdCount || 0;
-
-  // 1. DAYS LIVE SCORE (40% weight)
-  if (days >= 181)      score += 30;
-  else if (days >= 91)  score += 25;
-  else if (days >= 31)  score += 20;
-  else if (days >= 11)  score += 15;
-  else if (days >= 4)   score += 10;
-  else                  score += 5;
-
-  // 2. DUPLICATE CREATIVE SCORE (20% weight)
-  if (duplicates >= 30)      score += 30;
-  else if (duplicates >= 11) score += 20;
-  else if (duplicates >= 4)  score += 10;
-  else if (duplicates >= 2)  score += 5;
-
-  // 3. COUNTRY EXPANSION SCORE (15% weight)
-  if (countries >= 15)     score += 30;
-  else if (countries >= 6) score += 20;
-  else if (countries >= 2) score += 10;
-
-  // 4. PAGE ACTIVITY SCORE (10% weight)
-  if (pageAds >= 200)      score += 25;
-  else if (pageAds >= 51)  score += 15;
-  else if (pageAds >= 11)  score += 5;
-
-  // 5. CREATIVE VARIATION SCORE (10% weight)
-  if (variations >= 15)     score += 30;
-  else if (variations >= 6) score += 20;
-  else if (variations >= 2) score += 10;
-
-  // 6. LANDING PAGE STABILITY SCORE
-  if (days >= 90)      score += 30;
-  else if (days >= 60) score += 20;
-  else if (days >= 30) score += 10;
-
-  // 7. REUPLOAD BONUS
-  if (ad.isReupload) score += 15;
-
-  // 8. ENGAGEMENT SCORE
-  if (ad.engagementLevel === 'high')   score += 20;
-  else if (ad.engagementLevel === 'medium') score += 10;
-
-  return score;
-}
-
-function detectPhase(ad) {
-  const days = ad.runningDays || 0;
-  const duplicates = ad.duplicateCount || 1;
-  const countries = ad.countryCount || 1;
-  const score = ad.rawScore || 0;
-
-  // HOT: অল্প দিনে অনেক duplicate + country expansion
-  if (days <= 14 && duplicates >= 10 && countries >= 3) return 'HOT';
-
-  // LEGEND: 180+ days, massive scale
-  if (days > 180 && score > 150) return 'Legend';
-
-  // CASH COW: 90+ days, high score
-  if (days > 90 && score > 110) return 'Cash Cow';
-
-  // SCALING: high score + country/duplicate expansion
-  if (score >= 70 && (countries > 3 || duplicates > 5)) return 'Scaling';
-
-  // WINNING: medium-high score
-  if (score >= 40 && days >= 11) return 'Winning';
-
-  // VALIDATING: early stage
-  if (score >= 20 && days <= 10) return 'Validating';
-
-  // TESTING: brand new
-  return 'Testing';
-}
-
-// Confidence formula: min(score/150, 1) * 100
-function calcConfidence(score) {
-  return Math.round(Math.min(score / 150, 1) * 100);
-}
-
-// Phase reason generator
-function getPhaseReason(ad) {
-  const reasons = [];
-  if (ad.duplicateCount > 1)  reasons.push(`${ad.duplicateCount} duplicates`);
-  if (ad.countryCount > 1)    reasons.push(`${ad.countryCount} countries`);
-  if (ad.runningDays > 0)     reasons.push(`${ad.runningDays} days active`);
-  if (ad.isShopify)           reasons.push('Shopify store');
-  return reasons.slice(0, 3).join(', ') || 'New ad';
-}
-
-// ─── PROCESS RAW API AD ──────────────────────────────────────────────────────
-function processAd(raw) {
-  const startDate = raw.ad_delivery_start_time
-    ? new Date(raw.ad_delivery_start_time)
-    : new Date(raw.ad_creation_time);
-  const stopDate = raw.ad_delivery_stop_time ? new Date(raw.ad_delivery_stop_time) : null;
-  const today = new Date();
-  const runningDays = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
-  const isActive = !stopDate || stopDate > today;
-
-  const adText = [...(raw.creative_bodies || []), ...(raw.creative_link_descriptions || [])].join(' ').trim();
-  const landingUrl = (raw.creative_link_captions || [])[0] || '';
-  const title = (raw.creative_link_titles || [])[0] || '';
-
-  // Count countries
-  const countryCount = raw.delivery_by_region ? Object.keys(raw.delivery_by_region).length : 1;
-  const countries = raw.delivery_by_region
-    ? Object.keys(raw.delivery_by_region).slice(0, 5).join(', ')
-    : 'N/A';
-
-  // Creative type
-  let creativeType = 'Image';
-  if ((raw.creative_link_titles || []).length > 1) creativeType = 'Carousel';
-
-  // Impressions
-  let impressions = 'N/A';
-  if (raw.impressions) {
-    const lo = Number(raw.impressions.lower_bound);
-    const hi = Number(raw.impressions.upper_bound);
-    if (lo >= 1000000) impressions = `${(lo/1000000).toFixed(1)}M–${(hi/1000000).toFixed(1)}M`;
-    else if (lo >= 1000) impressions = `${Math.round(lo/1000)}K–${Math.round(hi/1000)}K`;
-    else impressions = `${lo}–${hi}`;
-  }
-
-  // Engagement level from impressions
-  let engagementLevel = 'low';
-  if (raw.impressions) {
-    const lo = Number(raw.impressions.lower_bound);
-    if (lo >= 1000000) engagementLevel = 'high';
-    else if (lo >= 100000) engagementLevel = 'medium';
-  }
-
-  const ad = {
-    id: raw.id,
-    pageName: raw.page_name || 'Unknown Page',
-    pageId: raw.page_id || '',
-    adText: adText.slice(0, 300),
-    title: title.slice(0, 120),
-    landingUrl,
-    isShopify: isShopifyUrl(landingUrl),
-    startDate: startDate.toLocaleDateString('en-US'),
-    runningDays,
-    isActive,
-    creativeType,
-    countries,
-    countryCount,
-    impressions,
-    engagementLevel,
-    spend: raw.spend ? `${raw.spend.lower_bound}–${raw.spend.upper_bound} ${raw.currency || 'USD'}` : 'N/A',
-    snapshotUrl: raw.ad_snapshot_url || '',
-    platforms: (raw.publisher_platforms || ['facebook']).join(', '),
-    // Heuristic estimates (real values need Chrome Extension)
-    duplicateCount: 1,
-    variationCount: 1,
-    pageAdCount: 0,
-    isReupload: false,
-    collectedAt: new Date().toISOString()
-  };
-
-  // Run AI Classification Engine
-  ad.rawScore = calcAdvancedScore(ad);
-  ad.phase = detectPhase(ad);
-  ad.confidence = calcConfidence(ad.rawScore);
-  ad.phaseReason = getPhaseReason(ad);
-  ad.model = detectModel(ad);
-  ad.score = ad.rawScore;
-
-  return ad;
-}
-
-// ─── MODEL DETECTION ─────────────────────────────────────────────────────────
-function detectModel(ad) {
-  const text = [ad.adText, ad.title, ad.pageName, ad.landingUrl].join(' ').toLowerCase();
-
-  const scores = {
-    POD: scoreKw(text, ['print','custom','personalized','islamic','muslim','motivational',
-      'teacher','nurse','quote','tshirt','t-shirt','hoodie','mug','poster','shirt',
-      'apparel','wear','gift','calligraphy','hijab','quran','faith','god']),
-    Dropship: scoreKw(text, ['free shipping','order now','limited stock','aliexpress',
-      'buy now','ships from','worldwide shipping','add to cart','% off today','flash sale']),
-    Jewelry: scoreKw(text, ['necklace','ring','bracelet','jewelry','jewellery','pendant',
-      'gold','silver','gemstone','diamond','earring','crystal','handcrafted','925']),
-    Digital: scoreKw(text, ['download','ebook','course','digital','template','preset',
-      'software','app','pdf','guide','masterclass','instant access','canva','notion']),
-    Amazon: scoreKw(text, ['amazon','prime','asin','amazon.com','fulfilled by']),
-    'Sub Box': scoreKw(text, ['subscribe','subscription','monthly box','box club',
-      'members','unboxing','curated box','mystery box'])
-  };
-
-  const best = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-  return best[0][1] > 0 ? best[0][0] : 'POD';
-}
-
-function scoreKw(text, keywords) {
-  return keywords.reduce((acc, k) => acc + (text.includes(k) ? 1 : 0), 0);
-}
-
-function isShopifyUrl(url) {
-  return url.includes('myshopify.com') || url.includes('.com/products') || url.includes('.com/collections');
-}
-
-// ─── TOKEN VERIFY ────────────────────────────────────────────────────────────
-app.get('/api/verify-token', async (req, res) => {
-  const { access_token } = req.query;
-  if (!access_token) return res.status(400).json({ valid: false, error: 'No token' });
-  try {
-    const r = await axios.get('https://graph.facebook.com/v19.0/me', {
-      params: { access_token, fields: 'id,name' }, timeout: 8000
+      'https://www.facebook.com/ads/library/api/', {
+      params: {
+        ad_type: 'ALL',
+        country: country,
+        search_terms: keyword,
+        fields: 'id,ad_creation_time,ad_creative_bodies,page_name,impressions',
+        limit: limit,
+        // ✅ App Token use করো (ads_read লাগে না এই fields এর জন্য)
+        access_token: process.env.META_APP_TOKEN
+      }
     });
-    res.json({ valid: true, user: r.data });
-  } catch (e) {
-    res.json({ valid: false, error: e.response?.data?.error?.message || 'Invalid token' });
+    
+    res.json({
+      success: true,
+      count: response.data.data?.length || 0,
+      ads: response.data.data || []
+    });
+    
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.response?.data?.error?.message || 'Error occurred'
+    });
   }
 });
 
-// ─── HEALTH CHECK ────────────────────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '5.1.7', engine: 'Advanced AI v2', time: new Date().toISOString() });
-});
-
-// ─── SERVE FRONTEND ──────────────────────────────────────────────────────────
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.listen(PORT, () => {
-  console.log(`🔍 AdSpy Pro v5.1.7 [Advanced AI Engine v2] running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
