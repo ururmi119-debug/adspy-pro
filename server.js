@@ -1,3 +1,43 @@
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
+
+const JWT_SECRET = 'adspypro_secret_2026';
+const ADMIN_USER = 'urmi';
+const ADMIN_PASS = bcrypt.hashSync('adspy2026', 10);
+const NOTIFY_EMAIL = 'urmiislamomi119@gmail.com';
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'urmiislamomi119@gmail.com',
+    pass: 'YOUR_APP_PASSWORD'
+  }
+});
+
+function authMiddleware(req, res, next) {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) {
+    sendAlert(req.ip);
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    sendAlert(req.ip);
+    res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+function sendAlert(ip) {
+  transporter.sendMail({
+    from: 'urmiislamomi119@gmail.com',
+    to: NOTIFY_EMAIL,
+    subject: 'AdSpy Pro - Unauthorized Access!',
+    text: 'Unauthorized access attempt from IP: ' + ip
+  });
+}
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
