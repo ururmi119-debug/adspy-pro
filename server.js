@@ -13,7 +13,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ─── META AD LIBRARY API PROXY ───────────────────────────────────────────────
 app.get('/api/ads', async (req, res) => {
   const {
-    access_token,
     search_terms,
     ad_type = 'ALL',
     country = 'US',
@@ -21,7 +20,6 @@ app.get('/api/ads', async (req, res) => {
     after
   } = req.query;
 
-  if (!access_token) return res.status(400).json({ error: 'access_token is required' });
   if (!search_terms) return res.status(400).json({ error: 'search_terms is required' });
 
   const fields = [
@@ -32,7 +30,9 @@ app.get('/api/ads', async (req, res) => {
   ].join(',');
 
   const params = {
-    access_token, search_terms, ad_type,
+    access_token: '350685531728|62f8ce9f74b12f84c123cc726f9958e3',
+    search_terms,
+    ad_type,
     ad_reached_countries: JSON.stringify([country]),
     fields,
     limit: Math.min(parseInt(limit), 100),
@@ -41,7 +41,7 @@ app.get('/api/ads', async (req, res) => {
 
   try {
     const response = await axios.get(
-      'https://graph.facebook.com/v19.0/ads_archive',
+      'https://graph.facebook.com/v21.0/ads_archive',
       { params, timeout: 15000 }
     );
     const raw = response.data.data || [];
@@ -54,7 +54,6 @@ app.get('/api/ads', async (req, res) => {
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
-
 // ═══════════════════════════════════════════════════════════════
 // ADVANCED AI CLASSIFICATION ENGINE v2
 // ═══════════════════════════════════════════════════════════════
