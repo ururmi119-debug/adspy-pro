@@ -264,7 +264,14 @@ function processAd(raw) {
     isReupload: false,
     collectedAt: new Date().toISOString()
   };
-
+// 18+ Haram Content Filter
+  const haramKeywords = [
+    'adult','18+','xxx','porn','sex','nude','naked',
+    'dating','hookup','escort','casino','gambling','bet',
+    'alcohol','beer','wine','whiskey','lottery'
+  ];
+  const checkText = [adText, title, raw.page_name || ''].join(' ').toLowerCase();
+  if (haramKeywords.some(k => checkText.includes(k))) return null;
   ad.rawScore = calcAdvancedScore(ad);
   ad.phase = detectPhase(ad);
   ad.confidence = calcConfidence(ad.rawScore);
