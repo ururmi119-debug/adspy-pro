@@ -103,10 +103,22 @@ app.get('/api/ads', async (req, res) => {
   });
   if (after) params.append('after', after);
 
-  try {
+ try {
     const response = await axios.get(
-      `https://www.facebook.com/ads/library/api/?${params.toString()}`,
-      { timeout: 15000 }
+      'https://facebook-ads-library-scraper.p.rapidapi.com/v1/facebook-ads/search',
+      {
+        params: {
+          searchQueries: search_terms,
+          country: country,
+          maxResults: limit,
+          mode: 'async'
+        },
+        headers: {
+          'x-rapidapi-key': '13f73ec124msh3847b68357f13b6p13e7b7jsnc3d7352f5269',
+          'x-rapidapi-host': 'facebook-ads-library-scraper.p.rapidapi.com'
+        },
+        timeout: 15000
+      }
     );
     const raw = response.data.data || [];
     const paging = response.data.paging || {};
