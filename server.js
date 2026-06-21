@@ -107,6 +107,11 @@ app.get('/api/ads', async (req, res) => {
       }
     );
     const raw = response.data.data || [];
+    if (raw.length > 0) {
+      console.log('🔍 DEBUG - First raw ad sample:', JSON.stringify(raw[0]).slice(0, 500));
+    } else {
+      console.log('🔍 DEBUG - response.data shape:', JSON.stringify(response.data).slice(0, 500));
+    }
     const paging = response.data.paging || {};
     const ads = raw.map(ad => processAd(ad));
     res.json({ ads, total: ads.length, next_cursor: paging.cursors?.after || null, has_more: !!paging.next });
@@ -188,6 +193,15 @@ function getPhaseReason(ad) {
   return reasons.slice(0, 3).join(', ') || 'New ad';
 }
 
+function makeFallbackId(pageName, title, adText, snapshotUrl) {
+  const raw = [pageName, title, adText, snapshotUrl].filter(Boolean).join('|');
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) - hash + raw.charCodeAt(i)) | 0;
+  }
+  return 'fid_' + Math.abs(hash) + '_' + raw.length;
+}
+
 function processAd(raw) {
   const startDate = raw.ad_delivery_start_time
     ? new Date(raw.ad_delivery_start_time)
@@ -226,7 +240,7 @@ function processAd(raw) {
   }
 
   const ad = {
-    id: raw.id,
+    id: raw.id || makeFallbackId(raw.page_name, title, adText, raw.ad_snapshot_url),
     pageName: raw.page_name || 'Unknown Page',
     pageId: raw.page_id || '',
     adText: adText.slice(0, 300),
