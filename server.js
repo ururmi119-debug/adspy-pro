@@ -2,19 +2,37 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 
-const JWT_SECRET = 'adspypro_secret_2026';
-const ADMIN_USER = 'urmi';
-const ADMIN_PASS = bcrypt.hashSync('adspy2026', 10);
-const NOTIFY_EMAIL = 'urmiislamomi119@gmail.com';
+// ─── SECRETS (loaded from environment variables — set these on Render) ──────
+const JWT_SECRET = process.env.JWT_SECRET;
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH; // pre-hashed with bcrypt, see note below
+const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+
+if (!JWT_SECRET || !RAPIDAPI_KEY) {
+  console.warn('⚠️  Missing required environment variables (JWT_SECRET / RAPIDAPI_KEY). Set them in Render > Environment.');
+}
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'urmiislamomi119@gmail.com',
-    pass: 'YOUR_APP_PASSWORD'
+    user: GMAIL_USER,
+    pass: GMAIL_APP_PASSWORD
   }
 });
 
+function sendAlert(ip) {
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return; // email not configured yet, skip silently
+  transporter.sendMail({
+    from: GMAIL_USER,
+    to: NOTIFY_EMAIL,
+    subject: 'AdSpy Pro - Unauthorized Access!',
+    text: 'Unauthorized access attempt from IP: ' + ip
+  }).catch(err => console.error('Email alert failed:', err.message));
+}
+
 function authMiddleware(req, res, next) {
   const token = req.headers['authorization']?.split(' ')[1];
   if (!token) {
@@ -30,38 +48,6 @@ function authMiddleware(req, res, next) {
   }
 }
 
-function sendAlert(ip) {
-  transporter.sendMail({
-    from: 'urmiislamomi119@gmail.com',
-    to: NOTIFY_EMAIL,
-    subject: 'AdSpy Pro - Unauthorized Access!',
-    text: 'Unauthorized access attempt from IP: ' + ip
-  });
-}
-
-function authMiddleware(req, res, next) {
-  const token = req.headers['authorization']?.split(' ')[1];
-  if (!token) {
-    sendAlert(req.ip);
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    sendAlert(req.ip);
-    res.status(401).json({ error: 'Invalid token' });
-  }
-}
-
-function sendAlert(ip) {
-  transporter.sendMail({
-    from: 'urmiislamomi119@gmail.com',
-    to: NOTIFY_EMAIL,
-    subject: 'AdSpy Pro - Unauthorized Access!',
-    text: 'Unauthorized access attempt from IP: ' + ip
-  });
-}
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -114,7 +100,7 @@ app.get('/api/ads', async (req, res) => {
           mode: 'async'
         },
         headers: {
-          'x-rapidapi-key': '13f73ec124msh3847b68357f13b6p13e7b7jsnc3d7352f5269',
+          'x-rapidapi-key': RAPIDAPI_KEY,
           'x-rapidapi-host': 'facebook-ads-library-scraper.p.rapidapi.com'
         },
         timeout: 15000
@@ -323,6 +309,27 @@ app.get('/api/verify-token', async (req, res) => {
   } catch (e) {
     res.json({ valid: false, error: e.response?.data?.error?.message || 'Invalid token' });
   }
+});
+
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+  if (!ADMIN_USER || !ADMIN_PASS_HASH) {
+    return res.status(500).json({ error: 'Login not configured on server yet' });
+  }
+  if (username !== ADMIN_USER) {
+    sendAlert(req.ip);
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  const match = await bcrypt.compare(password, ADMIN_PASS_HASH);
+  if (!match) {
+    sendAlert(req.ip);
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  const token = jwt.sign({ user: username }, JWT_SECRET, { expiresIn: '7d' });
+  res.json({ token });
 });
 
 app.get('/api/health', (req, res) => {
