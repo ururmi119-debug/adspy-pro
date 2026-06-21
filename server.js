@@ -107,11 +107,6 @@ app.get('/api/ads', async (req, res) => {
       }
     );
     const raw = response.data.data || [];
-    if (raw.length > 0) {
-      console.log('🔍 DEBUG - First raw ad sample:', JSON.stringify(raw[0]).slice(0, 500));
-    } else {
-      console.log('🔍 DEBUG - response.data shape:', JSON.stringify(response.data).slice(0, 500));
-    }
     const paging = response.data.paging || {};
     const ads = raw.map(ad => processAd(ad));
     res.json({ ads, total: ads.length, next_cursor: paging.cursors?.after || null, has_more: !!paging.next });
@@ -203,51 +198,36 @@ function makeFallbackId(pageName, title, adText, snapshotUrl) {
 }
 
 function processAd(raw) {
-  const startDate = raw.ad_delivery_start_time
-    ? new Date(raw.ad_delivery_start_time)
-    : new Date(raw.ad_creation_time);
-  const stopDate = raw.ad_delivery_stop_time ? new Date(raw.ad_delivery_stop_time) : null;
+  // RapidAPI "facebook-ads-library-scraper" returns a different shape than
+  // Meta's official API. Actual fields confirmed from live response:
+  // { libraryId, adUrl, pageName, searchQuery, sourceUrl, country, activeStatus, scrapedAt }
+  const scrapedDate = raw.scrapedAt ? new Date(raw.scrapedAt) : new Date();
   const today = new Date();
-  const runningDays = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
-  const isActive = !stopDate || stopDate > today;
+  // This scraper doesn't expose real ad start/stop dates, so we treat scrape date
+  // as a proxy and runningDays as "unknown" (0) rather than guessing.
+  const runningDays = 0;
+  const isActive = (raw.activeStatus || '').toLowerCase() === 'active';
 
-  const adText = [...(raw.creative_bodies || []), ...(raw.creative_link_descriptions || [])].join(' ').trim();
-  const landingUrl = (raw.creative_link_captions || [])[0] || '';
-  const title = (raw.creative_link_titles || [])[0] || '';
+  const adText = raw.pageName || '';
+  const title = raw.pageName || '';
+  const landingUrl = raw.sourceUrl || raw.adUrl || '';
 
-  const countryCount = raw.delivery_by_region ? Object.keys(raw.delivery_by_region).length : 1;
-  const countries = raw.delivery_by_region
-    ? Object.keys(raw.delivery_by_region).slice(0, 5).join(', ')
-    : 'N/A';
+  const countryCount = 1;
+  const countries = raw.country || 'N/A';
 
-  let creativeType = 'Image';
-  if ((raw.creative_link_titles || []).length > 1) creativeType = 'Carousel';
-
-  let impressions = 'N/A';
-  if (raw.impressions) {
-    const lo = Number(raw.impressions.lower_bound);
-    const hi = Number(raw.impressions.upper_bound);
-    if (lo >= 1000000) impressions = (lo/1000000).toFixed(1) + 'M–' + (hi/1000000).toFixed(1) + 'M';
-    else if (lo >= 1000) impressions = Math.round(lo/1000) + 'K–' + Math.round(hi/1000) + 'K';
-    else impressions = lo + '–' + hi;
-  }
-
-  let engagementLevel = 'low';
-  if (raw.impressions) {
-    const lo = Number(raw.impressions.lower_bound);
-    if (lo >= 1000000) engagementLevel = 'high';
-    else if (lo >= 100000) engagementLevel = 'medium';
-  }
+  const creativeType = 'Image';
+  const impressions = 'N/A';
+  const engagementLevel = 'low';
 
   const ad = {
-    id: raw.id || makeFallbackId(raw.page_name, title, adText, raw.ad_snapshot_url),
-    pageName: raw.page_name || 'Unknown Page',
-    pageId: raw.page_id || '',
+    id: raw.libraryId || makeFallbackId(raw.pageName, title, adText, raw.adUrl),
+    pageName: raw.pageName || 'Unknown Page',
+    pageId: raw.libraryId || '',
     adText: adText.slice(0, 300),
     title: title.slice(0, 120),
     landingUrl,
     isShopify: isShopifyUrl(landingUrl),
-    startDate: startDate.toLocaleDateString('en-US'),
+    startDate: scrapedDate.toLocaleDateString('en-US'),
     runningDays,
     isActive,
     creativeType,
@@ -255,9 +235,9 @@ function processAd(raw) {
     countryCount,
     impressions,
     engagementLevel,
-    spend: raw.spend ? raw.spend.lower_bound + '–' + raw.spend.upper_bound + ' ' + (raw.currency || 'USD') : 'N/A',
-    snapshotUrl: raw.ad_snapshot_url || '',
-    platforms: (raw.publisher_platforms || ['facebook']).join(', '),
+    spend: 'N/A',
+    snapshotUrl: raw.adUrl || '',
+    platforms: 'facebook',
     duplicateCount: 1,
     variationCount: 1,
     pageAdCount: 0,
@@ -270,7 +250,7 @@ function processAd(raw) {
     'dating','hookup','escort','casino','gambling','bet',
     'alcohol','beer','wine','whiskey','lottery'
   ];
-  const checkText = [adText, title, raw.page_name || ''].join(' ').toLowerCase();
+  const checkText = [adText, title, raw.pageName || ''].join(' ').toLowerCase();
   if (haramKeywords.some(k => checkText.includes(k))) return null;
   ad.rawScore = calcAdvancedScore(ad);
   ad.phase = detectPhase(ad);
