@@ -212,6 +212,27 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
 </head>
 <body>
 
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" style="position:fixed;inset:0;background:#0a0e1a;display:flex;align-items:center;justify-content:center;z-index:9999;">
+  <div style="width:340px;padding:36px 32px;background:#111827;border:1px solid #1f2937;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+    <div style="text-align:center;margin-bottom:28px;">
+      <span style="font-size:28px">🔍</span>
+      <div style="font-size:20px;font-weight:700;color:#fff;margin-top:6px;">AdSpy<span style="color:#3b82f6">Pro</span></div>
+      <div style="font-size:13px;color:#6b7280;margin-top:4px;">Sign in to continue</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11px;color:#9ca3af;letter-spacing:.05em;display:block;margin-bottom:6px;">USERNAME</label>
+      <input type="text" id="loginUser" placeholder="Username" style="width:100%;padding:11px 14px;background:#0a0e1a;border:1px solid #1f2937;border-radius:8px;color:#fff;font-size:14px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div style="margin-bottom:18px;">
+      <label style="font-size:11px;color:#9ca3af;letter-spacing:.05em;display:block;margin-bottom:6px;">PASSWORD</label>
+      <input type="password" id="loginPass" placeholder="Password" style="width:100%;padding:11px 14px;background:#0a0e1a;border:1px solid #1f2937;border-radius:8px;color:#fff;font-size:14px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button onclick="doLogin()" style="width:100%;padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Sign In</button>
+    <div id="loginError" style="color:#ef4444;font-size:13px;margin-top:12px;text-align:center;display:none;"></div>
+  </div>
+</div>
+
 <!-- MODAL -->
 <div class="modal-bg" id="modBg" onclick="closeMod(event)">
   <div class="modal">
@@ -252,6 +273,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
   <div class="sb-item" data-page="select" onclick="nav(this)"><span class="ico">✓</span>Select</div>
   <div class="sb-item" data-page="backup" onclick="nav(this)"><span class="ico">💾</span>Backup</div>
   <div class="sb-item" data-page="profile" onclick="nav(this)"><span class="ico">👤</span>Profile</div>
+  <div class="sb-item" onclick="logout()"><span class="ico">🚪</span>Logout</div>
 </div>
 
 <!-- MAIN -->
@@ -485,6 +507,58 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
 
 <script>
 // ═══════════════════════════════════
+// AUTH / LOGIN
+// ═══════════════════════════════════
+function getAuthToken() {
+  return sessionStorage.getItem('adspy_token') || '';
+}
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+}
+function showLogin() {
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+async function doLogin() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  if (!u || !p) {
+    errEl.textContent = 'Enter username and password';
+    errEl.style.display = 'block';
+    return;
+  }
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.token) {
+      errEl.textContent = data.error || 'Login failed';
+      errEl.style.display = 'block';
+      return;
+    }
+    sessionStorage.setItem('adspy_token', data.token);
+    showApp();
+  } catch (e) {
+    errEl.textContent = 'Network error, try again';
+    errEl.style.display = 'block';
+  }
+}
+function logout() {
+  sessionStorage.removeItem('adspy_token');
+  location.reload();
+}
+// Check auth on page load
+if (getAuthToken()) {
+  showApp();
+} else {
+  showLogin();
+}
+
+// ═══════════════════════════════════
 // STATE
 // ═══════════════════════════════════
 let ads = [], favs = new Set(), selectedIds = new Set();
@@ -534,7 +608,7 @@ async function fetchAds() {
   const limit   = document.getElementById('s-lim').value;
   try {
     const url = `${window.location.origin}/api/ads?` + new URLSearchParams({access_token:tok,search_terms:q,country,limit});
-    const r = await fetch(url);
+    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
     const d = await r.json();
     if(d.error) throw new Error(d.error);
     const newAds = dedup(d.ads||[]);
