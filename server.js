@@ -60,8 +60,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── META AD LIBRARY API PROXY ───────────────────────────────────────────────
-app.get('/api/ads', async (req, res) => {
+// ─── META AD LIBRARY API PROXY (protected — requires login) ─────────────────
+app.get('/api/ads', authMiddleware, async (req, res) => {
   const {
     search_terms,
     ad_type = 'ALL',
