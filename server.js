@@ -97,7 +97,7 @@ app.get('/api/ads', async (req, res) => {
           searchQueries: search_terms,
           country: country,
           maxResults: limit,
-          mode: 'async'
+          mode: 'sync'
         },
         headers: {
           'x-rapidapi-key': RAPIDAPI_KEY,
