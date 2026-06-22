@@ -657,13 +657,17 @@ function loadDemo() {
 // ═══════════════════════════════════
 function cardHTML(a, mode='normal', selectable=false) {
   const pc = PHASE_COLORS[a.phase]||'#475569';
-  const typeIco = a.creativeType?.includes('Video')?'🎬':a.creativeType?.includes('Carousel')?'🎠':'🖼️';
+  const typeIco = a.creativeType?.includes('Video')?'🎬':a.creativeType?.includes('Carousel')?'🎠':'';
   const isFav = favs.has(a.id);
   const isSel = selectedIds.has(a.id);
   const imgH = mode==='large'?'ad-img lg':'ad-img';
+  const initial = (a.pageName||'?').trim().charAt(0).toUpperCase() || '?';
+  const gradColors = ['#3b82f6,#1e40af','#ec4899,#9d174d','#06b6d4,#0e7490','#f59e0b,#b45309','#8b5cf6,#5b21b6','#22c55e,#15803d','#f97316,#c2410c'];
+  const gradIdx = (initial.charCodeAt(0) || 0) % gradColors.length;
+  const placeholder = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,${gradColors[gradIdx]});font-family:'Space Mono',monospace;font-size:34px;font-weight:700;color:rgba(255,255,255,.85)">${initial}${typeIco?`<span style="position:absolute;bottom:8px;right:8px;font-size:16px;opacity:.85">${typeIco}</span>`:''}</div>`;
   const selCheck = selectable ? `<div style="position:absolute;top:8px;left:8px;width:18px;height:18px;border-radius:4px;background:${isSel?'var(--acc)':'rgba(0,0,0,.5)'};border:1.5px solid ${isSel?'var(--acc)':'rgba(255,255,255,.3)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff" onclick="event.stopPropagation();toggleSelect('${a.id}')">${isSel?'✓':''}</div>` : '';
   return `<div class="ad-card" onclick="${selectable?`toggleSelect('${a.id}')`:`openMod('${a.id}')`}">
-    <div class="${imgH}">${typeIco}
+    <div class="${imgH}">${placeholder}
       ${selectable ? selCheck : `<div class="phase-b" style="background:${pc}22;color:${pc};border:1px solid ${pc}44">${a.phase}</div>`}
       <div class="model-b">${a.model}</div>
       <div class="conf-b">${a.confidence||0}%</div>
