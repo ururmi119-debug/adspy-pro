@@ -89,33 +89,59 @@ app.get('/api/ads', authMiddleware, async (req, res) => {
   });
   if (after) params.append('after', after);
 
- try {
-    const response = await axios.get(
-      'https://facebook-ads-library-scraper.p.rapidapi.com/v1/facebook-ads/search',
-      {
-        params: {
-          searchQueries: search_terms,
-          country: country,
-          maxResults: limit,
-          mode: 'sync'
-        },
-        headers: {
-          'x-rapidapi-key': RAPIDAPI_KEY,
-          'x-rapidapi-host': 'facebook-ads-library-scraper.p.rapidapi.com'
-        },
-        timeout: 15000
+  // ─── Retry logic for RapidAPI 429 (rate limit) errors ─────────────────────
+  const maxRetries = 2;
+  let lastErr;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await axios.get(
+        'https://facebook-ads-library-scraper.p.rapidapi.com/v1/facebook-ads/search',
+        {
+          params: {
+            searchQueries: search_terms,
+            country: country,
+            maxResults: limit,
+            mode: 'sync'
+          },
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': 'facebook-ads-library-scraper.p.rapidapi.com'
+          },
+          timeout: 15000
+        }
+      );
+      const raw = response.data.data || [];
+      const paging = response.data.paging || {};
+      const ads = raw.map(ad => processAd(ad)).filter(Boolean);
+      return res.json({ ads, total: ads.length, next_cursor: paging.cursors?.after || null, has_more: !!paging.next });
+    } catch (err) {
+      lastErr = err;
+      const status = err.response?.status;
+
+      // Rate limited — wait and retry with exponential backoff (2s, 4s)
+      if (status === 429 && attempt < maxRetries) {
+        const waitMs = 2000 * (attempt + 1);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
       }
-    );
-    const raw = response.data.data || [];
-    const paging = response.data.paging || {};
-    const ads = raw.map(ad => processAd(ad));
-    res.json({ ads, total: ads.length, next_cursor: paging.cursors?.after || null, has_more: !!paging.next });
-  } catch (err) {
-    const fbError = err.response?.data?.error;
-    if (fbError) return res.status(400).json({ error: fbError.message, code: fbError.code });
-    res.status(500).json({ error: 'Server error: ' + err.message });
+      break; // any other error, or retries exhausted — stop trying
+    }
   }
+
+  // All retries exhausted, or a non-retryable error occurred
+  const status = lastErr.response?.status;
+  if (status === 429) {
+    return res.status(429).json({
+      error: 'RapidAPI rate limit reached. Please wait a minute and try again, or upgrade your RapidAPI plan.',
+      code: 'RATE_LIMITED'
+    });
+  }
+  const fbError = lastErr.response?.data?.error;
+  if (fbError) return res.status(400).json({ error: fbError.message || fbError, code: fbError.code });
+  res.status(500).json({ error: 'Server error: ' + lastErr.message });
 });
+
 function calcAdvancedScore(ad) {
   let score = 0;
   const days = ad.runningDays || 0;
