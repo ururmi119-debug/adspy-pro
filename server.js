@@ -95,24 +95,29 @@ app.get('/api/ads', authMiddleware, async (req, res) => {
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await axios.get(
-        'https://facebook-ads-library-scraper.p.rapidapi.com/v1/facebook-ads/search',
-        {
-          params: {
-            searchQueries: search_terms,
-            country: country,
-            maxResults: limit,
-            mode: 'sync'
-          },
-          headers: {
-            'x-rapidapi-key': RAPIDAPI_KEY,
-            'x-rapidapi-host': 'facebook-ads-library-scraper.p.rapidapi.com'
-          },
-          timeout: 15000
-        }
-      );
-      const raw = response.data.data || [];
-      const paging = response.data.paging || {};
+     const response = await axios.get(
+          'https://facebook-ads-library-scraper-api.p.rapidapi.com/search/ads',
+          {
+            params: {
+              query: search_terms,
+              search_type: 'keyword_unordered',
+              ad_type: 'all',
+              status: 'ACTIVE',
+              country: country,
+              media_type: 'ALL',
+              sort_by: 'total_impressions',
+              trim: false
+            },
+            headers: {
+              'x-rapidapi-key': RAPIDAPI_KEY,
+              'x-rapidapi-host': 'facebook-ads-library-scraper-api.p.rapidapi.com'
+            },
+            timeout: 15000
+          }
+        );
+        const raw = response.data.searchResults || [];
+        const paging = {};
+      
       const ads = raw.map(ad => processAd(ad)).filter(Boolean);
       return res.json({ ads, total: ads.length, next_cursor: paging.cursors?.after || null, has_more: !!paging.next });
     } catch (err) {
@@ -224,36 +229,55 @@ function makeFallbackId(pageName, title, adText, snapshotUrl) {
 }
 
 function processAd(raw) {
-  // RapidAPI "facebook-ads-library-scraper" returns a different shape than
-  // Meta's official API. Actual fields confirmed from live response:
-  // { libraryId, adUrl, pageName, searchQuery, sourceUrl, country, activeStatus, scrapedAt }
-  const scrapedDate = raw.scrapedAt ? new Date(raw.scrapedAt) : new Date();
+  // New API "facebook-ads-library-scraper-api" returns Meta-style nested shape.
+  const snap = raw.snapshot || {};
+
+  const startDateRaw = raw.start_date ? new Date(raw.start_date * 1000) : new Date();
+  const endDateRaw = raw.end_date ? new Date(raw.end_date * 1000) : null;
   const today = new Date();
-  // This scraper doesn't expose real ad start/stop dates, so we treat scrape date
-  // as a proxy and runningDays as "unknown" (0) rather than guessing.
-  const runningDays = 0;
-  const isActive = (raw.activeStatus || '').toLowerCase() === 'active';
 
-  const adText = raw.pageName || '';
-  const title = raw.pageName || '';
-  const landingUrl = raw.sourceUrl || raw.adUrl || '';
+  let runningDays = 0;
+  if (raw.total_active_time) {
+    runningDays = Math.round(raw.total_active_time / 86400);
+  } else if (raw.start_date) {
+    const endPoint = (endDateRaw && raw.is_active === false) ? endDateRaw : today;
+    runningDays = Math.max(0, Math.round((endPoint - startDateRaw) / 86400000));
+  }
 
-  const countryCount = 1;
-  const countries = raw.country || 'N/A';
+  const isActive = raw.is_active === true;
+  const pageName = snap.page_name || snap.current_page_name || raw.page_name || 'Unknown Page';
+  const adText = (snap.body?.text || '').toString();
+  const title = snap.title || pageName;
+  const landingUrl = snap.link_url || '';
 
-  const creativeType = 'Image';
-  const impressions = 'N/A';
+  // ─── Real image/thumbnail extraction ─────────────────────────────────────
+  const firstImage = (snap.images && snap.images[0]) || {};
+  const firstVideo = (snap.videos && snap.videos[0]) || {};
+  const thumbnailUrl =
+    firstImage.resized_image_url ||
+    firstImage.original_image_url ||
+    firstVideo.video_preview_image_url ||
+    snap.page_profile_picture_url ||
+    '';
+
+  let creativeType = 'Image';
+  if (snap.videos && snap.videos.length > 0) creativeType = 'Video';
+  else if (snap.display_format) creativeType = snap.display_format;
+
+  const countries = (raw.targeted_or_reached_countries && raw.targeted_or_reached_countries.join(', ')) || 'N/A';
+  const countryCount = (raw.targeted_or_reached_countries && raw.targeted_or_reached_countries.length) || 1;
+  const impressions = raw.impressions_with_index?.impressions_text || 'N/A';
   const engagementLevel = 'low';
 
   const ad = {
-    id: raw.libraryId || makeFallbackId(raw.pageName, title, adText, raw.adUrl),
-    pageName: raw.pageName || 'Unknown Page',
-    pageId: raw.libraryId || '',
+    id: raw.ad_archive_id || makeFallbackId(pageName, title, adText, landingUrl),
+    pageName,
+    pageId: raw.page_id || '',
     adText: adText.slice(0, 300),
     title: title.slice(0, 120),
     landingUrl,
     isShopify: isShopifyUrl(landingUrl),
-    startDate: scrapedDate.toLocaleDateString('en-US'),
+    startDate: startDateRaw.toLocaleDateString('en-US'),
     runningDays,
     isActive,
     creativeType,
@@ -261,23 +285,26 @@ function processAd(raw) {
     countryCount,
     impressions,
     engagementLevel,
-    spend: 'N/A',
-    snapshotUrl: raw.adUrl || '',
-    platforms: 'facebook',
+    spend: raw.spend || 'N/A',
+    snapshotUrl: landingUrl,
+    thumbnailUrl,
+    platforms: (raw.publisher_platform && raw.publisher_platform.join(', ')) || 'facebook',
     duplicateCount: 1,
     variationCount: 1,
     pageAdCount: 0,
     isReupload: false,
     collectedAt: new Date().toISOString()
   };
-// 18+ Haram Content Filter
+
+  // 18+ Haram Content Filter
   const haramKeywords = [
     'adult','18+','xxx','porn','sex','nude','naked',
     'dating','hookup','escort','casino','gambling','bet',
     'alcohol','beer','wine','whiskey','lottery'
   ];
-  const checkText = [adText, title, raw.pageName || ''].join(' ').toLowerCase();
+  const checkText = [adText, title, pageName].join(' ').toLowerCase();
   if (haramKeywords.some(k => checkText.includes(k))) return null;
+
   ad.rawScore = calcAdvancedScore(ad);
   ad.phase = detectPhase(ad);
   ad.confidence = calcConfidence(ad.rawScore);
@@ -287,7 +314,6 @@ function processAd(raw) {
 
   return ad;
 }
-
 function detectModel(ad) {
   const text = [ad.adText, ad.title, ad.pageName, ad.landingUrl].join(' ').toLowerCase();
 
