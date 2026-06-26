@@ -6,13 +6,15 @@
   "permissions": ["activeTab", "storage"],
   "host_permissions": [
     "https://www.facebook.com/*",
-    "https://facebook.com/*"
+    "https://facebook.com/*",
+    "https://web.facebook.com/*"
   ],
   "content_scripts": [
     {
       "matches": [
         "https://www.facebook.com/ads/library/*",
-        "https://facebook.com/ads/library/*"
+        "https://facebook.com/ads/library/*",
+        "https://web.facebook.com/ads/library/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
