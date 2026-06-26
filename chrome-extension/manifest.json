@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "AdSpy Pro v5.1.7",
+  "version": "5.1.7",
+  "description": "Meta Ad Library Intelligence - POD & E-commerce Ad Analyzer",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "https://www.facebook.com/*",
+    "https://facebook.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.facebook.com/ads/library/*",
+        "https://facebook.com/ads/library/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icon48.png"
+    }
+  },
+  "icons": {
+    "48": "icon48.png"
+  }
+}
