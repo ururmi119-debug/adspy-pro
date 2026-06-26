@@ -1,0 +1,17 @@
+body{width:260px;background:#080a14;color:#e2e8f0;font-family:Arial,sans-serif;padding:0;margin:0;}
+.hdr{padding:12px 14px;background:#0d1117;border-bottom:1px solid #1e2d4a;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-size:13px;font-weight:700;color:#fff;}
+.logo span{color:#3b82f6;}
+.ver{font-size:9px;color:#334155;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#1e2d4a;}
+.stat{background:#0d1117;padding:12px;text-align:center;}
+.val{font-size:20px;font-weight:700;color:#e2e8f0;}
+.val.hot{color:#ef4444;}
+.val.win{color:#22c55e;}
+.val.pod{color:#06b6d4;}
+.lbl{font-size:10px;color:#475569;margin-top:2px;}
+.btns{padding:12px;}
+.btn{display:block;width:100%;padding:10px;background:#1d4ed8;border:none;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;border-radius:6px;margin-bottom:6px;}
+.btn:hover{background:#2563eb;}
+.btn2{background:#0d1117;border:1px solid #1e2d4a;color:#64748b;}
+.btn3{background:#1a0808;border:1px solid #3f1212;color:#ef4444;}
