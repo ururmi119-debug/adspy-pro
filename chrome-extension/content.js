@@ -1,4 +1,4 @@
-// AdSpy Pro v5.1.7 - No image required
+// AdSpy Pro v5.1.8 - Fixed card detection (walks up to parent container)
 var ADSPY = { total:0, hot:0, winning:0, pod:0 };
 var processed = [];
 
@@ -146,21 +146,17 @@ function processCard(card) {
   } catch(e) {}
 }
 
-// ── SMART FINDER - no image required ────────────────────────────
+// ── SMART FINDER v5.1.8 - walks UP from the small date-div to find the real card ──
 function findCards() {
   var allDivs = document.getElementsByTagName('div');
   for(var i = 0; i < allDivs.length; i++) {
     var el = allDivs[i];
-    if(processed.indexOf(el) >= 0) continue;
 
     var text = el.innerText || '';
     if(text.indexOf('Started running on') < 0) continue;
 
-    var h = el.offsetHeight;
-    var w = el.offsetWidth;
-    if(h < 100 || h > 900) continue;
-    if(w < 150 || w > 800) continue;
-
+    // Make sure THIS div is the innermost one containing the date text
+    // (skip big wrapper divs that merely contain a date-div somewhere inside)
     var childDivs = el.getElementsByTagName('div');
     var childHasDate = false;
     for(var j = 0; j < childDivs.length; j++) {
@@ -169,9 +165,24 @@ function findCards() {
         break;
       }
     }
-    if(!childHasDate) {
-      processCard(el);
+    if(childHasDate) continue; // not the innermost date div, skip — its parent walk will be handled below
+
+    // Walk UP from this small date-div until we find a card-sized container
+    var card = el;
+    var hops = 0;
+    while(card && hops < 10) {
+      if(card.offsetWidth >= 200 && card.offsetWidth <= 800 &&
+         card.offsetHeight >= 250 && card.offsetHeight <= 1400) {
+        break;
+      }
+      card = card.parentElement;
+      hops++;
     }
+
+    if(!card) continue;
+    if(processed.indexOf(card) >= 0) continue;
+
+    processCard(card);
   }
 }
 
