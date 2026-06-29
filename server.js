@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const { Pool } = require('pg');
 
 // ─── SECRETS (loaded from environment variables — set these on Render) ──────
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -14,6 +15,24 @@ const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 if (!JWT_SECRET || !RAPIDAPI_KEY) {
   console.warn('⚠️  Missing required environment variables (JWT_SECRET / RAPIDAPI_KEY). Set them in Render > Environment.');
 }
+// ─── POSTGRES DATABASE CONNECTION ────────────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected Postgres pool error:', err.message);
+});
+
+pool.connect()
+  .then(client => {
+    console.log('✅ Connected to Postgres (adradar-db)');
+    client.release();
+  })
+  .catch(err => {
+    console.error('❌ Postgres connection failed:', err.message);
+  });
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
