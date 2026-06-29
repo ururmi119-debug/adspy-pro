@@ -83,7 +83,7 @@ function sendAlert(ip) {
   transporter.sendMail({
     from: GMAIL_USER,
     to: NOTIFY_EMAIL,
-    subject: 'AdSpy Pro - Unauthorized Access!',
+    subject: 'AdRadar - Unauthorized Access!',
     text: 'Unauthorized access attempt from IP: ' + ip
   }).catch(err => console.error('Email alert failed:', err.message));
 }
@@ -547,5 +547,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log('AdSpy Pro v5.1.7 running on port ' + PORT);
+  console.log('AdRadar v5.1.7 running on port ' + PORT);
 });
