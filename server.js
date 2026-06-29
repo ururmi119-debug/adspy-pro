@@ -432,6 +432,111 @@ app.post('/api/login', async (req, res) => {
   const token = jwt.sign({ user: username }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token });
 });
+// ─── EXTRACT ADVERTISER DOMAIN FROM A URL ────────────────────────────────────
+function extractDomain(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
+// ─── EXTENSION SYNC ENDPOINT ──────────────────────────────────────────────────
+// Receives ads scraped by the Chrome Extension and upserts them into Postgres.
+app.post('/api/extension/sync', authMiddleware, async (req, res) => {
+  const { ads } = req.body;
+
+  if (!Array.isArray(ads) || ads.length === 0) {
+    return res.status(400).json({ error: 'ads array is required and must not be empty' });
+  }
+
+  const upsertQuery = `
+    INSERT INTO ads (
+      id, page_name, page_id, ad_text, title, landing_url, advertiser_domain,
+      thumbnail_url, creative_type, running_days, is_meta_active, phase, score,
+      confidence, phase_reason, model, countries, country_count, platforms,
+      source, status, first_seen_at, last_seen_at
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7,
+      $8, $9, $10, $11, $12, $13,
+      $14, $15, $16, $17, $18, $19,
+      $20, $21, NOW(), NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      running_days   = EXCLUDED.running_days,
+      is_meta_active = EXCLUDED.is_meta_active,
+      phase          = EXCLUDED.phase,
+      score          = EXCLUDED.score,
+      confidence     = EXCLUDED.confidence,
+      phase_reason   = EXCLUDED.phase_reason,
+      last_seen_at   = NOW(),
+      status         = 'active',
+      archived_at    = NULL
+    WHERE ads.status = 'archived' OR ads.id = EXCLUDED.id;
+  `;
+
+  let synced = 0;
+  let failed = 0;
+
+  for (const ad of ads) {
+    try {
+      const advertiserDomain = extractDomain(ad.landingUrl);
+      await pool.query(upsertQuery, [
+        ad.id,
+        ad.pageName || null,
+        ad.pageId || null,
+        ad.adText || null,
+        ad.title || null,
+        ad.landingUrl || null,
+        advertiserDomain,
+        ad.thumbnailUrl || null,
+        ad.creativeType || null,
+        ad.runningDays || 0,
+        ad.isActive ?? true,
+        ad.phase || null,
+        ad.score || 0,
+        ad.confidence || 0,
+        ad.phaseReason || null,
+        ad.model || null,
+        ad.countries || null,
+        ad.countryCount || 1,
+        ad.platforms || null,
+        'extension',
+        'active'
+      ]);
+      synced++;
+    } catch (err) {
+      console.error('Sync error for ad', ad.id, ':', err.message);
+      failed++;
+    }
+  }
+
+  res.json({ synced, failed, total: ads.length });
+});
+
+// ─── AUTO-ARCHIVE: ads not seen in 30+ days get archived ────────────────────
+async function autoArchiveStaleAds() {
+  try {
+    const result = await pool.query(`
+      UPDATE ads
+      SET status = 'archived', archived_at = NOW()
+      WHERE status = 'active'
+        AND source = 'extension'
+        AND last_seen_at < NOW() - INTERVAL '30 days'
+    `);
+    if (result.rowCount > 0) {
+      console.log(`📦 Auto-archived ${result.rowCount} stale extension ads`);
+    }
+  } catch (err) {
+    console.error('Auto-archive error:', err.message);
+  }
+}
+
+// Run once on server start, then every 24 hours
+autoArchiveStaleAds();
+setInterval(autoArchiveStaleAds, 24 * 60 * 60 * 1000);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', version: '5.1.7', engine: 'Advanced AI v2', time: new Date().toISOString() });
