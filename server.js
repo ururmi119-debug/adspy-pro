@@ -33,6 +33,42 @@ pool.connect()
   .catch(err => {
     console.error('❌ Postgres connection failed:', err.message);
   });
+// ─── DATABASE MIGRATION: create ads table if it doesn't exist ───────────────
+const createAdsTableQuery = `
+  CREATE TABLE IF NOT EXISTS ads (
+    id              TEXT PRIMARY KEY,
+    page_name       TEXT,
+    page_id         TEXT,
+    ad_text         TEXT,
+    title           TEXT,
+    landing_url     TEXT,
+    advertiser_domain TEXT,
+    thumbnail_url   TEXT,
+    creative_type   TEXT,
+    running_days    INTEGER,
+    is_meta_active  BOOLEAN,
+    phase           TEXT,
+    score           INTEGER,
+    confidence      INTEGER,
+    phase_reason    TEXT,
+    model           TEXT,
+    countries       TEXT,
+    country_count   INTEGER,
+    platforms       TEXT,
+    source          TEXT,
+    status          TEXT DEFAULT 'active',
+    first_seen_at   TIMESTAMP DEFAULT NOW(),
+    last_seen_at    TIMESTAMP DEFAULT NOW(),
+    archived_at     TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_status ON ads(status);
+  CREATE INDEX IF NOT EXISTS idx_source ON ads(source);
+  CREATE INDEX IF NOT EXISTS idx_phase ON ads(phase);
+`;
+
+pool.query(createAdsTableQuery)
+  .then(() => console.log('✅ ads table is ready'))
+  .catch(err => console.error('❌ Migration failed:', err.message));
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
