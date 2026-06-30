@@ -4,18 +4,36 @@
 <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-<div class="hdr"><span class="logo">🔍 AdSpy<span>Pro</span></span><span class="ver">v5.1.7</span></div>
-<div class="grid">
-  <div class="stat"><div class="val" id="t">0</div><div class="lbl">Scanned</div></div>
-  <div class="stat"><div class="val hot" id="h">0</div><div class="lbl">🔥 HOT</div></div>
-  <div class="stat"><div class="val win" id="w">0</div><div class="lbl">✅ Win+</div></div>
-  <div class="stat"><div class="val pod" id="p">0</div><div class="lbl">🎁 POD</div></div>
+<div class="hdr"><span class="logo">🔍 Ad<span>Radar</span></span><span class="ver">v5.1.7</span></div>
+
+<!-- LOGIN VIEW (shown when no token saved) -->
+<div id="loginView" class="loginWrap" style="display:none;">
+  <label class="loginLbl">Username</label>
+  <input type="text" id="loginUser" class="loginInput" placeholder="Username">
+  <label class="loginLbl">Password</label>
+  <input type="password" id="loginPass" class="loginInput" placeholder="Password">
+  <div id="loginErr" class="loginErr"></div>
+  <button class="btn" id="loginBtn">🔐 Sign In</button>
 </div>
-<div class="btns">
-  <button class="btn" id="openBtn">🔍 Open Dashboard</button>
-  <button class="btn btn2" id="expBtn">📊 Export CSV</button>
-  <button class="btn btn3" id="clrBtn">🗑 Clear Data</button>
+
+<!-- MAIN VIEW (shown when logged in) -->
+<div id="mainView" style="display:none;">
+  <div class="syncRow"><span class="syncDot" id="syncDot"></span><span class="syncTxt" id="syncTxt">Not synced yet</span></div>
+  <div class="grid">
+    <div class="stat"><div class="val" id="t">0</div><div class="lbl">Scanned</div></div>
+    <div class="stat"><div class="val hot" id="h">0</div><div class="lbl">🔥 HOT</div></div>
+    <div class="stat"><div class="val win" id="w">0</div><div class="lbl">✅ Win+</div></div>
+    <div class="stat"><div class="val pod" id="p">0</div><div class="lbl">🎁 POD</div></div>
+  </div>
+  <div class="btns">
+    <button class="btn" id="openBtn">🔍 Open Dashboard</button>
+    <button class="btn btn2" id="syncBtn">☁️ Sync Now</button>
+    <button class="btn btn2" id="expBtn">📊 Export CSV</button>
+    <button class="btn btn3" id="clrBtn">🗑 Clear Data</button>
+    <span class="logoutLink" id="logoutBtn">Logout</span>
+  </div>
 </div>
+
 <script src="popup.js"></script>
 </body>
 </html>
