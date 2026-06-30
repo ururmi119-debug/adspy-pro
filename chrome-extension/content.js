@@ -1,4 +1,5 @@
-// AdSpy Pro v5.1.8 - Fixed card detection (walks up to parent container)
+// AdRadar v5.1.8 - Fixed card detection (walks up to parent container) + DB Sync
+var API_BASE = 'https://adspy-pro-vc7w.onrender.com';
 var ADSPY = { total:0, hot:0, winning:0, pod:0 };
 var processed = [];
 
@@ -60,6 +61,48 @@ function parseDays(text) {
   return -1;
 }
 
+// ── NEW: extract the advertiser's landing page URL from a card ──
+// Facebook Ad Library cards usually contain an outbound link to the
+// advertiser's site (their CTA button / "See ad details" link target,
+// or a plain <a> pointing off-Facebook). We grab the first such link.
+function parseLandingUrl(card) {
+  try {
+    var links = card.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var href = links[i].getAttribute('href') || '';
+      // Skip Facebook's own internal/relative links and empty hrefs
+      if (!href || href.indexOf('#') === 0) continue;
+      if (href.indexOf('facebook.com') >= 0 || href.indexOf('/ads/library') >= 0) continue;
+      if (href.indexOf('http') !== 0) continue;
+      // Meta sometimes wraps outbound links in an "l.facebook.com/l.php?u=" redirect
+      var m = href.match(/[?&]u=([^&]+)/);
+      if (m) {
+        try { return decodeURIComponent(m[1]); } catch(e) { return href; }
+      }
+      return href;
+    }
+  } catch(e) {}
+  return '';
+}
+
+// ── NEW: extract the Facebook Page name running the ad ──
+function parsePageName(card, fallbackText) {
+  try {
+    // The page name is usually the first bold/strong short text block in the card
+    var candidates = card.querySelectorAll('span, strong, a');
+    for (var i = 0; i < candidates.length; i++) {
+      var t = (candidates[i].innerText || '').trim();
+      if (t.length >= 2 && t.length <= 60 &&
+          t.indexOf('Started running') < 0 &&
+          t.indexOf('Library ID') < 0 &&
+          !/^\d+$/.test(t)) {
+        return t;
+      }
+    }
+  } catch(e) {}
+  return (fallbackText || 'Unknown Page').slice(0, 60);
+}
+
 function makeBadge(phase, model, conf, days) {
   var color = getColor(phase);
   var emoji = getEmoji(phase);
@@ -78,7 +121,7 @@ function makePanel() {
   var el = document.createElement('div');
   el.id = 'adspy-panel-v2';
   el.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:2147483647;background:rgba(8,10,20,0.96);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 14px;min-width:160px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);';
-  el.innerHTML = '<div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:10px;">🔍 AdSpy<span style="color:#3b82f6;">Pro</span></div>' +
+  el.innerHTML = '<div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:10px;">🔍 Ad<span style="color:#3b82f6;">Radar</span></div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
     '<div style="background:#0f172a;border-radius:6px;padding:6px 8px;"><div style="font-size:16px;font-weight:700;color:#e2e8f0;" id="ap2-total">0</div><div style="font-size:9px;color:#334155;">Scanned</div></div>' +
     '<div style="background:#0f172a;border-radius:6px;padding:6px 8px;"><div style="font-size:16px;font-weight:700;color:#ef4444;" id="ap2-hot">0</div><div style="font-size:9px;color:#334155;">🔥 HOT</div></div>' +
@@ -100,6 +143,16 @@ function updatePanel() {
   if(w) w.textContent = ADSPY.winning;
   if(p) p.textContent = ADSPY.pod;
   if(s) s.textContent = '● ' + ADSPY.total + ' ads scanned';
+}
+
+// ── builds a stable-ish ID for an ad so we don't sync the same one twice ──
+function makeAdId(pageName, text, landingUrl) {
+  var raw = (pageName||'') + '|' + (text||'').slice(0,100) + '|' + (landingUrl||'');
+  var hash = 0;
+  for (var i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) - hash + raw.charCodeAt(i)) | 0;
+  }
+  return 'ext_' + Math.abs(hash) + '_' + raw.length;
 }
 
 function processCard(card) {
@@ -124,6 +177,9 @@ function processCard(card) {
   var model = getModel(text);
   var conf = Math.round(Math.min(score/150, 1)*100);
 
+  var landingUrl = parseLandingUrl(card);
+  var pageName = parsePageName(card, text.split('\n')[0]);
+
   try {
     card.insertAdjacentHTML('afterbegin', makeBadge(phase, model, conf, days));
   } catch(e) {}
@@ -134,17 +190,99 @@ function processCard(card) {
   if(model === 'POD') ADSPY.pod++;
   updatePanel();
 
+  var adId = makeAdId(pageName, text, landingUrl);
+
   try {
     chrome.storage.local.get('adsData', function(r) {
       var saved = r.adsData || [];
-      saved.push({phase:phase, model:model, score:score, confidence:conf, days:actualDays,
-        text: text.slice(0,150), pageUrl: window.location.href,
-        collectedAt: new Date().toISOString()});
+      saved.push({
+        id: adId,
+        phase: phase,
+        model: model,
+        score: score,
+        confidence: conf,
+        days: actualDays,
+        runningDays: actualDays,
+        pageName: pageName,
+        landingUrl: landingUrl,
+        text: text.slice(0,150),
+        adText: text.slice(0,300),
+        pageUrl: window.location.href,
+        isActive: true,
+        creativeType: 'Image',
+        countries: countries,
+        countryCount: countries,
+        platforms: 'facebook',
+        collectedAt: new Date().toISOString()
+      });
       if(saved.length > 500) saved = saved.slice(-500);
       chrome.storage.local.set({adsData: saved});
     });
   } catch(e) {}
 }
+
+// ═══════════════════════════════════
+// SYNC TO SERVER (NEW)
+// ═══════════════════════════════════
+function syncToServer(callback) {
+  chrome.storage.local.get(['adradar_token', 'adsData', 'syncedIds'], function(r) {
+    var token = r.adradar_token;
+    if (!token) { if (callback) callback(false); return; } // not logged in, skip silently
+
+    var allAds = r.adsData || [];
+    var syncedIds = r.syncedIds || [];
+    var syncedSet = {};
+    for (var i = 0; i < syncedIds.length; i++) syncedSet[syncedIds[i]] = true;
+
+    var pending = allAds.filter(function(a) { return a.id && !syncedSet[a.id]; });
+    if (!pending.length) { if (callback) callback(true); return; }
+
+    // Send in batches of 50 so we don't make one giant request
+    var batch = pending.slice(0, 50);
+
+    fetch(API_BASE + '/api/extension/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ ads: batch })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      var newSyncedIds = syncedIds.concat(batch.map(function(a){ return a.id; }));
+      // keep the synced-id list from growing forever
+      if (newSyncedIds.length > 2000) newSyncedIds = newSyncedIds.slice(-2000);
+      chrome.storage.local.set({
+        syncedIds: newSyncedIds,
+        lastSyncStatus: 'ok',
+        lastSyncTime: new Date().toISOString()
+      }, function() {
+        if (callback) callback(true);
+      });
+    })
+    .catch(function() {
+      chrome.storage.local.set({ lastSyncStatus: 'err' }, function() {
+        if (callback) callback(false);
+      });
+    });
+  });
+}
+
+// Auto-sync every 30 seconds
+setInterval(function() { syncToServer(); }, 30000);
+// Also sync once shortly after the page loads (gives the first scan time to populate data)
+setTimeout(function() { syncToServer(); }, 10000);
+
+// Listen for a manual "sync now" request from the popup
+try {
+  chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
+    if (msg && msg.type === 'ADRADAR_MANUAL_SYNC') {
+      syncToServer(function(ok) { sendResponse({ ok: ok }); });
+      return true; // keep the message channel open for the async response
+    }
+  });
+} catch(e) {}
 
 // ── SMART FINDER v5.1.8 - walks UP from the small date-div to find the real card ──
 function findCards() {
