@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AdSpy Pro v5.1.7</title>
+<title>AdRadar v5.1.7</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -217,7 +217,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
   <div style="width:340px;padding:36px 32px;background:#111827;border:1px solid #1f2937;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);">
     <div style="text-align:center;margin-bottom:28px;">
       <span style="font-size:28px">🔍</span>
-      <div style="font-size:20px;font-weight:700;color:#fff;margin-top:6px;">AdSpy<span style="color:#3b82f6">Pro</span></div>
+      <div style="font-size:20px;font-weight:700;color:#fff;margin-top:6px;">Ad<span style="color:#3b82f6">Radar</span></div>
       <div style="font-size:13px;color:#6b7280;margin-top:4px;">Sign in to continue</div>
     </div>
     <div style="margin-bottom:14px;">
@@ -248,7 +248,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
 <div class="sb">
   <div class="sb-logo">
     <span style="font-size:16px">🔍</span>
-    <span class="sb-logo-txt">AdSpy<span>Pro</span></span>
+    <span class="sb-logo-txt">Ad<span>Radar</span></span>
     <span class="sb-logo-ver">v5.1.7</span>
   </div>
 
@@ -490,11 +490,11 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
     <div class="page" id="page-profile">
       <div class="profile-card">
         <div class="profile-avatar">👤</div>
-        <div class="profile-name">AdSpy Pro User</div>
+        <div class="profile-name">AdRadar User</div>
         <div class="profile-email">Meta Ad Intelligence Tool v5.1.7</div>
         <div class="profile-field"><label>API Endpoint</label><input type="text" value="https://adspy-pro-vc7w.onrender.com" readonly></div>
         <div class="profile-field"><label>GitHub Repo</label><input type="text" value="github.com/ururmi119-debug/adspy-pro" readonly></div>
-        <div class="profile-field"><label>Version</label><input type="text" value="AdSpy Pro v5.1.7 — Advanced AI Engine v2" readonly></div>
+        <div class="profile-field"><label>Version</label><input type="text" value="AdRadar v5.1.7 — Advanced AI Engine v2" readonly></div>
         <div style="display:flex;gap:8px;margin-top:14px">
           <button class="tb-btn prim" onclick="toast('Settings saved!','ok')">Save Settings</button>
           <button class="tb-btn" style="color:var(--hot);border-color:rgba(239,68,68,.3)" onclick="clearAll()">Clear All Data</button>
@@ -510,7 +510,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
 // AUTH / LOGIN
 // ═══════════════════════════════════
 function getAuthToken() {
-  return sessionStorage.getItem('adspy_token') || '';
+  return sessionStorage.getItem('adradar_token') || '';
 }
 function showApp() {
   document.getElementById('loginScreen').style.display = 'none';
@@ -540,7 +540,7 @@ async function doLogin() {
       errEl.style.display = 'block';
       return;
     }
-    sessionStorage.setItem('adspy_token', data.token);
+    sessionStorage.setItem('adradar_token', data.token);
     showApp();
   } catch (e) {
     errEl.textContent = 'Network error, try again';
@@ -548,7 +548,7 @@ async function doLogin() {
   }
 }
 function logout() {
-  sessionStorage.removeItem('adspy_token');
+  sessionStorage.removeItem('adradar_token');
   location.reload();
 }
 // Check auth on page load
@@ -919,11 +919,11 @@ function exportJSON(){exportData(ads,'json');}
 function exportExcel(){exportData(ads,'csv');toast('Excel: CSV exported (open in Excel)','ok');}
 function exportData(data, fmt) {
   if(!data.length){toast('No ads to export!','err');return;}
-  if(fmt==='json'){dl(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'adspy_export.json');}
+  if(fmt==='json'){dl(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'adradar_export.json');}
   else{
     const h=['ID','Page','Phase','Model','Active','Start','Days','Score','Confidence','Type','URL','Shopify','Impressions','Countries','Text'];
     const rows=data.map(a=>[a.id,a.pageName,a.phase,a.model,a.isActive,a.startDate,a.runningDays,a.score,a.confidence+'%',a.creativeType,a.landingUrl,a.isShopify,a.impressions,a.countries,`"${(a.adText||'').replace(/"/g,'""')}"`]);
-    dl(new Blob([[h.join(','),...rows.map(r=>r.join(','))].join('\n')],{type:'text/csv'}),'adspy_export.csv');
+    dl(new Blob([[h.join(','),...rows.map(r=>r.join(','))].join('\n')],{type:'text/csv'}),'adradar_export.csv');
   }
   toast(`${fmt.toUpperCase()} exported!`,'ok');
 }
