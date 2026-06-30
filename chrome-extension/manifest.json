@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "AdSpy Pro v5.1.7",
+  "name": "AdRadar v5.1.7",
   "version": "5.1.7",
   "description": "Meta Ad Library Intelligence - POD & E-commerce Ad Analyzer",
   "permissions": ["activeTab", "storage"],
   "host_permissions": [
     "https://www.facebook.com/*",
     "https://facebook.com/*",
-    "https://web.facebook.com/*"
+    "https://web.facebook.com/*",
+    "https://adspy-pro-vc7w.onrender.com/*"
   ],
   "content_scripts": [
     {
