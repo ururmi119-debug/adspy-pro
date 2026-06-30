@@ -15,3 +15,17 @@ body{width:260px;background:#080a14;color:#e2e8f0;font-family:Arial,sans-serif;p
 .btn:hover{background:#2563eb;}
 .btn2{background:#0d1117;border:1px solid #1e2d4a;color:#64748b;}
 .btn3{background:#1a0808;border:1px solid #3f1212;color:#ef4444;}
+
+/* ── LOGIN FORM ── */
+.loginWrap{padding:16px 14px;}
+.loginLbl{font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;}
+.loginInput{width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #1e2d4a;border-radius:6px;padding:9px 10px;color:#e2e8f0;font-size:12px;font-family:Arial,sans-serif;outline:none;margin-bottom:10px;}
+.loginInput:focus{border-color:#3b82f6;}
+.loginErr{color:#ef4444;font-size:11px;margin-top:-4px;margin-bottom:10px;display:none;}
+.syncRow{display:flex;align-items:center;gap:6px;padding:8px 14px;background:#0d1117;border-bottom:1px solid #1e2d4a;}
+.syncDot{width:6px;height:6px;border-radius:50%;background:#475569;flex-shrink:0;}
+.syncDot.ok{background:#22c55e;}
+.syncDot.err{background:#ef4444;}
+.syncTxt{font-size:10px;color:#64748b;font-family:Arial,sans-serif;}
+.logoutLink{font-size:10px;color:#475569;text-decoration:underline;cursor:pointer;text-align:center;display:block;margin-top:4px;}
+.logoutLink:hover{color:#94a3b8;}
