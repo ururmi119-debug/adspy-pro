@@ -538,6 +538,59 @@ async function autoArchiveStaleAds() {
 autoArchiveStaleAds();
 setInterval(autoArchiveStaleAds, 24 * 60 * 60 * 1000);
 
+// ─── DASHBOARD: GET ADS FROM DATABASE (protected — requires login) ──────────
+app.get('/api/ads/db', authMiddleware, async (req, res) => {
+  try {
+    const statusFilter = req.query.status || 'active'; // 'active' | 'archived' | 'all'
+    const limit = parseInt(req.query.limit) || 200;
+
+    let whereClause = '';
+    const params = [];
+    if (statusFilter !== 'all') {
+      whereClause = 'WHERE status = $1';
+      params.push(statusFilter);
+    }
+    params.push(limit);
+
+    const query = `
+      SELECT * FROM ads
+      ${whereClause}
+      ORDER BY last_seen_at DESC
+      LIMIT $${params.length}
+    `;
+
+    const result = await pool.query(query, params);
+
+    const ads = result.rows.map(r => ({
+      id: r.id,
+      pageName: r.page_name,
+      adText: r.ad_text,
+      title: r.title,
+      landingUrl: r.landing_url,
+      advertiserDomain: r.advertiser_domain,
+      thumbnailUrl: r.thumbnail_url,
+      creativeType: r.creative_type,
+      runningDays: r.running_days,
+      isActive: r.is_meta_active,
+      phase: r.phase,
+      score: r.score,
+      confidence: r.confidence,
+      model: r.model,
+      countries: r.countries,
+      countryCount: r.country_count,
+      isShopify: (r.landing_url || '').includes('myshopify.com'),
+      startDate: r.first_seen_at ? new Date(r.first_seen_at).toLocaleDateString('en-US') : '—',
+      status: r.status
+    }));
+
+    res.json({ ads, total: ads.length });
+  } catch (err) {
+    console.error('DB fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch ads from database' });
+  }
+});
+
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', version: '5.1.7', engine: 'Advanced AI v2', time: new Date().toISOString() });
 });
