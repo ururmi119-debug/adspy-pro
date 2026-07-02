@@ -809,7 +809,10 @@ function getSortedFiltered() {
 function buildDomainTable() {
   const domains = {};
   ads.forEach(a => {
-    const d = (a.landingUrl||'').split('/')[0]||'unknown';
+   const d = (() => {
+  try { return new URL(a.landingUrl.startsWith('http') ? a.landingUrl : 'https://' + a.landingUrl).hostname.replace(/^www\./,''); }
+  catch { return a.landingUrl || 'unknown'; }
+})();
     if(!domains[d]) domains[d] = {domain:d, count:0, phase:a.phase, model:a.model, active:0};
     domains[d].count++;
     if(a.isActive) domains[d].active++;
