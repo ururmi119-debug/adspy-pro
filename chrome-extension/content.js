@@ -178,6 +178,7 @@ function processCard(card) {
   var conf = Math.round(Math.min(score/150, 1)*100);
 
   var landingUrl = parseLandingUrl(card);
+  var thumbnailUrl = parseThumbnail(card);
   var pageName = parsePageName(card, text.split('\n')[0]);
 
   try {
@@ -209,6 +210,7 @@ function processCard(card) {
         adText: text.slice(0,300),
         pageUrl: window.location.href,
         isActive: true,
+        thumbnailUrl: thumbnailUrl,
         creativeType: 'Image',
         countries: countries,
         countryCount: countries,
