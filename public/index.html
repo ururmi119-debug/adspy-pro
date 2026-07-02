@@ -287,6 +287,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
     </div>
     <div class="tb-actions">
       <button class="tb-btn" onclick="loadDemo()">📥 Load Demo</button>
+      <button class="tb-btn" onclick="loadFromDB()">🗄️ Synced Ads</button>
       <button class="tb-btn prim" onclick="nav(document.querySelector('[data-page=search]'))">+ Fetch Ads</button>
       <div class="notif">🔔<div class="notif-dot"></div></div>
     </div>
@@ -650,6 +651,25 @@ function loadDemo() {
   });
   updateAll();
   toast(`${ads.length} demo ads loaded!`,'ok');
+}
+
+
+  async function loadFromDB() {
+  setApiSt('connecting','Loading synced ads...');
+  try {
+    const url = `${window.location.origin}/api/ads/db?status=all&limit=200`;
+    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    const newAds = dedup(d.ads||[]);
+    ads = [...ads, ...newAds];
+    setApiSt('ok',`Connected · ${ads.length} ads`);
+    updateAll();
+    toast(`${d.ads.length} synced ads loaded!`,'ok');
+  } catch(e) {
+    setApiSt('err','Error');
+    toast(e.message.slice(0,60),'err');
+  }
 }
 
 // ═══════════════════════════════════
