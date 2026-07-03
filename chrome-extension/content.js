@@ -84,6 +84,20 @@ function parseLandingUrl(card) {
   } catch(e) {}
   return '';
 }
+function parseThumbnail(card) {
+  try {
+    var imgs = card.querySelectorAll('img[src]');
+    for (var i = 0; i < imgs.length; i++) {
+      var src = imgs[i].src;
+      if (src && src.indexOf('http') === 0) return src;
+    }
+    var video = card.querySelector('video[poster]');
+    if (video && video.poster) return video.poster;
+  } catch(e) {}
+  return '';
+}
+
+
 
 // ── NEW: extract the Facebook Page name running the ad ──
 function parsePageName(card, fallbackText) {
