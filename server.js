@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
-const { Pool } = require('pg');,
+const { Pool } = require('pg');
 const { google } = require('googleapis');
 
 // ─── GOOGLE SHEETS BACKUP CONFIG ──────────────────────────────────────────
