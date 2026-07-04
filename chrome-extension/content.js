@@ -82,7 +82,12 @@ function parseLandingUrl(card) {
       return href;
     }
   } catch(e) {}
-  return '';
+  // Fallback: no clickable link found — try to extract a URL from the ad's own text
+  try {
+    var cardText = card.innerText || '';
+    var urlMatch = cardText.match(/https?:\/\/[^\s"')<>]+/);
+    if (urlMatch) return urlMatch[0].replace(/[.,)]+$/, '');
+  } catch(e2) {}return '';
 }
 function parseThumbnail(card) {
   try {
