@@ -1,7 +1,56 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
-const { Pool } = require('pg');
+const { Pool } = require('pg');,
+const { google } = require('googleapis');
+
+// ─── GOOGLE SHEETS BACKUP CONFIG ──────────────────────────────────────────
+const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID;
+
+let sheetsClient = null;
+if (GOOGLE_SERVICE_ACCOUNT_EMAIL && GOOGLE_PRIVATE_KEY && GOOGLE_SHEET_ID) {
+  const sheetsAuth = new google.auth.JWT(
+    GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    null,
+    GOOGLE_PRIVATE_KEY,
+    ['https://www.googleapis.com/auth/spreadsheets']
+  );
+  sheetsClient = google.sheets({ version: 'v4', auth: sheetsAuth });
+  console.log('✅ Google Sheets backup configured');
+} else {
+  console.warn('⚠️  Google Sheets backup not configured — set GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_SHEET_ID to enable');
+}
+
+async function backupToGoogleSheets(ads) {
+  if (!sheetsClient || !Array.isArray(ads) || ads.length === 0) return;
+
+  const rows = ads.map(ad => [
+    ad.id || '',
+    ad.pageName || '',
+    ad.title || '',
+    ad.landingUrl || '',
+    ad.phase || '',
+    ad.score || 0,
+    ad.runningDays || 0,
+    ad.countries || '',
+    new Date().toISOString()
+  ]);
+
+  try {
+    await sheetsClient.spreadsheets.values.append({
+      spreadsheetId: GOOGLE_SHEET_ID,
+      range: 'Sheet1!A:I',
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: rows }
+    });
+    console.log(`📊 Backed up ${rows.length} ads to Google Sheets`);
+  } catch (err) {
+    console.error('Google Sheets backup failed:', err.message);
+  }
+}
 
 // ─── SECRETS (loaded from environment variables — set these on Render) ──────
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -513,7 +562,10 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
     }
   }
 
-  res.json({ synced, failed, total: ads.length });
+// Fire-and-forget backup to Google Sheets — doesn't block or fail the response
+    backupToGoogleSheets(ads).catch(() => {});
+
+    res.json({ synced, failed, total: ads.length });
 });
 
 // ─── AUTO-ARCHIVE: ads not seen in 30+ days get archived ────────────────────
