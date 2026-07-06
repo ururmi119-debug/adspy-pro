@@ -643,6 +643,29 @@ app.get('/api/ads/db', authMiddleware, async (req, res) => {
 });
 
 
+app.delete('/api/ads/db', authMiddleware, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    if (!ids.length) return res.status(400).json({ error: 'No ids provided' });
+
+    const result = await pool.query('DELETE FROM ads WHERE id = ANY($1::text[])', [ids]);
+    res.json({ deleted: result.rowCount, ids });
+  } catch (err) {
+    console.error('DB delete error:', err.message);
+    res.status(500).json({ error: 'Failed to delete ads' });
+  }
+});
+
+app.delete('/api/ads/db/:id', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM ads WHERE id = $1', [req.params.id]);
+    res.json({ deleted: result.rowCount, id: req.params.id });
+  } catch (err) {
+    console.error('DB delete error:', err.message);
+    res.status(500).json({ error: 'Failed to delete ad' });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', version: '5.1.7', engine: 'Advanced AI v2', time: new Date().toISOString() });
 });
