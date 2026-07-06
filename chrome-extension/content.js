@@ -7,7 +7,7 @@ var ADSPY = {
   modelCounts:{Dropship:0,POD:0,Jewelry:0,Digital:0,Amazon:0,'Sub Box':0},
   shopifyCount:0, multiCount:0
 };
-var ADSPY_UI = { scanning:true, filterOn:false, competeOn:false, largeOn:false, galleryOn:false, liveOn:true, autoScrollOn:false, category:'All', model:null };
+var ADSPY_UI = { scanning:true, filterOn:true, competeOn:false, largeOn:false, galleryOn:false, liveOn:true, autoScrollOn:false, category:'All', model:null };
 var processed = [];
 var scanIntervalRef=null, mutationObsRef=null, autoScrollIntervalRef=null, syncIntervalRef=null, scanTimeout=null;
 
@@ -46,7 +46,7 @@ function getModel(text) {
 }
 
 function getColor(phase) {
-  var c = {HOT:'#ef4444',Legend:'#fbbf24','Cash Cow':'#f59e0b',Scaling:'#3b82f6',Winning:'#22c55e',Validating:'#8b5cf6',Testing:'#64748b',Shopify:'#95bf47',Multi:'#06b6d4'};
+  var c = {All:'#e2e8f0',HOT:'#ef4444',Legend:'#fbbf24','Cash Cow':'#f59e0b',Scaling:'#3b82f6',Winning:'#22c55e',Validating:'#8b5cf6',Testing:'#64748b',Shopify:'#95bf47',Multi:'#06b6d4'};
   return c[phase] || '#64748b';
 }
 
@@ -105,8 +105,17 @@ function parseLandingUrl(card) {
 
 function parseThumbnail(card) {
   try {
-    var img = card.querySelector('img');
-    if (img && img.src) return img.src;
+    var imgs = card.querySelectorAll('img');
+    var best = null, bestArea = 0;
+    for (var i = 0; i < imgs.length; i++) {
+      var im = imgs[i];
+      var w = im.naturalWidth || im.width || 0;
+      var h = im.naturalHeight || im.height || 0;
+      var area = w * h;
+      if (area > bestArea) { bestArea = area; best = im; }
+    }
+    if (best && best.src && bestArea > 0) return best.src;
+    if (imgs.length && imgs[0].src) return imgs[0].src;
     var video = card.querySelector('video');
     if (video && video.poster) return video.poster;
   } catch(e) {}
@@ -173,12 +182,15 @@ var btnRefs = {};
 var chipRefs = {};
 var modelChipRefs = {};
 
-function styleBtn(el, active) {
-  el.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;user-select:none;border:1px solid ' + (active?'rgba(59,130,246,0.5)':'rgba(255,255,255,0.08)') + ';background:' + (active?'rgba(59,130,246,0.18)':'rgba(255,255,255,0.04)') + ';color:' + (active?'#60a5fa':'#cbd5e1') + ';white-space:nowrap;';
+function styleBtn(el, active, accent) {
+  accent = accent || '#3b82f6';
+  var isLight = (accent === '#ffffff');
+  el.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;user-select:none;border:1px solid ' + (active?accent+'aa':'rgba(255,255,255,0.1)') + ';background:' + (active?(isLight?'#fff':accent+'22'):'rgba(255,255,255,0.05)') + ';color:' + (active?(isLight?'#111':accent):'#cbd5e1') + ';white-space:nowrap;transition:all .15s;';
 }
 
 function styleChip(el, active, color) {
-  el.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:14px;font-size:10px;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap;border:1px solid ' + (active?color+'88':'rgba(255,255,255,0.08)') + ';background:' + (active?color+'22':'rgba(255,255,255,0.04)') + ';color:' + (active?color:'#94a3b8') + ';';
+  var isLight = (color === '#e2e8f0' || color === '#ffffff');
+  el.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:14px;font-size:10px;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap;border:1px solid ' + (active?color+'88':'rgba(255,255,255,0.08)') + ';background:' + (active?(isLight?'#e2e8f0':color+'22'):'rgba(255,255,255,0.04)') + ';color:' + (active?(isLight?'#111':color):'#94a3b8') + ';';
 }
 
 function makePanel() {
@@ -186,7 +198,7 @@ function makePanel() {
 
   var wrap = document.createElement('div');
   wrap.id = 'adspy-panel-v2';
-  wrap.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;background:rgba(8,10,20,0.97);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 12px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;margin:0 auto;';
+  wrap.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;background:rgba(10,10,10,0.96);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:12px 16px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;margin:0 auto;';
 
   // Row 1: toolbar
   var row1 = document.createElement('div');
@@ -197,10 +209,12 @@ function makePanel() {
   brand.innerHTML = '🔍 Ad<span style="color:#3b82f6">Radar</span> <span style="font-size:9px;color:#475569;font-weight:400;">v5.2.0</span>';
   row1.appendChild(brand);
 
+  var btnAccents = { scan:'#fbbf24', filter:'#22c55e', compete:'#ec4899', large:'#ffffff', gallery:'#fbbf24', live:'#06b6d4', auto:'#3b82f6' };
+
   function addBtn(key, label, onClick) {
     var b = document.createElement('div');
     b.textContent = label;
-    styleBtn(b, false);
+    styleBtn(b, false, btnAccents[key]);
     b.addEventListener('click', onClick);
     row1.appendChild(b);
     btnRefs[key] = b;
@@ -208,7 +222,7 @@ function makePanel() {
 
   addBtn('scan', '🔄 Scan', function(){ setScanning(!ADSPY_UI.scanning); });
   addBtn('filter', '⚡ Filter', function(){ toggleFilterPanel(); });
-  addBtn('compete', '🥊 Compete', function(){ toggleCompete(); });
+  addBtn('compete', '🎗 Compete', function(){ toggleCompete(); });
 
   var starBox = document.createElement('div');
   starBox.style.cssText = 'display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:7px;background:rgba(255,255,255,0.04);font-size:11px;font-weight:700;color:#fbbf24;white-space:nowrap;';
@@ -265,13 +279,13 @@ function makePanel() {
 }
 
 function updateToolbarActiveStates() {
-  if(btnRefs.scan) { btnRefs.scan.textContent = ADSPY_UI.scanning ? '⏸ Scan' : '▶ Scan'; styleBtn(btnRefs.scan, ADSPY_UI.scanning); }
-  if(btnRefs.filter) styleBtn(btnRefs.filter, ADSPY_UI.filterOn);
-  if(btnRefs.compete) styleBtn(btnRefs.compete, ADSPY_UI.competeOn);
-  if(btnRefs.large) styleBtn(btnRefs.large, ADSPY_UI.largeOn);
-  if(btnRefs.gallery) styleBtn(btnRefs.gallery, ADSPY_UI.galleryOn);
-  if(btnRefs.live) styleBtn(btnRefs.live, ADSPY_UI.liveOn);
-  if(btnRefs.auto) styleBtn(btnRefs.auto, ADSPY_UI.autoScrollOn);
+  if(btnRefs.scan) { btnRefs.scan.textContent = ADSPY_UI.scanning ? '⏸ Scan' : '▶ Scan'; styleBtn(btnRefs.scan, ADSPY_UI.scanning, '#fbbf24'); }
+  if(btnRefs.filter) { btnRefs.filter.textContent = ADSPY_UI.filterOn ? '⚡ Filter ✓' : '⚡ Filter'; styleBtn(btnRefs.filter, ADSPY_UI.filterOn, '#22c55e'); }
+  if(btnRefs.compete) styleBtn(btnRefs.compete, ADSPY_UI.competeOn, '#ec4899');
+  if(btnRefs.large) styleBtn(btnRefs.large, ADSPY_UI.largeOn, '#ffffff');
+  if(btnRefs.gallery) styleBtn(btnRefs.gallery, ADSPY_UI.galleryOn, '#fbbf24');
+  if(btnRefs.live) styleBtn(btnRefs.live, ADSPY_UI.liveOn, '#06b6d4');
+  if(btnRefs.auto) styleBtn(btnRefs.auto, ADSPY_UI.autoScrollOn, '#3b82f6');
   var rows = document.getElementById('adspy-filter-rows');
   if(rows) rows.style.display = ADSPY_UI.filterOn ? 'flex' : 'none';
 }
