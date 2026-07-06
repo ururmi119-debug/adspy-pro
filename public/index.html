@@ -731,6 +731,7 @@ const placeholder = `<div style="position:absolute;inset:0;display:flex;align-it
           <div class="aact" title="Details" onclick="event.stopPropagation();openMod('${a.id}')">👁</div>
           <div class="aact" title="${isFav?'Unfavorite':'Favorite'}" onclick="event.stopPropagation();toggleFav('${a.id}',this)">${isFav?'⭐':'☆'}</div>
           ${a.landingUrl?`<div class="aact" title="Visit" onclick="event.stopPropagation();window.open('https://${a.landingUrl}','_blank')">🔗</div>`:''}
+          <div class="aact" title="Delete this ad" style="color:var(--hot)" onclick="event.stopPropagation();deleteOneAd('${a.id}')">🗑</div>
         </div>
       </div>
     </div>
@@ -913,7 +914,43 @@ function toggleSelect(id) {
 function selectAll() { ads.forEach(a=>selectedIds.add(a.id)); document.getElementById('sel-count').textContent=`${selectedIds.size} selected`; renderGrid('select-grid',ads,'normal',true); }
 function deselectAll() { selectedIds.clear(); document.getElementById('sel-count').textContent='0 selected'; renderGrid('select-grid',ads,'normal',true); }
 function exportSelected() { const sel=ads.filter(a=>selectedIds.has(a.id)); if(!sel.length){toast('Select some ads first!','err');return;} exportData(sel,'csv'); }
-function deleteSelected() { if(!selectedIds.size){toast('Select some ads first!','err');return;} ads=ads.filter(a=>!selectedIds.has(a.id)); selectedIds.clear(); updateAll(); toast('Deleted!','ok'); }
+async function deleteSelected() {
+  if(!selectedIds.size){toast('Select some ads first!','err');return;}
+  const idsArr = [...selectedIds];
+  const realIds = idsArr.filter(id => !String(id).startsWith('demo_'));
+  if(realIds.length) {
+    try {
+      const r = await fetch('/api/ads/db', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
+        body: JSON.stringify({ ids: realIds })
+      });
+      if(!r.ok) throw new Error('Delete failed');
+    } catch(e) { toast('Server delete failed, removing locally','err'); }
+  }
+  ads=ads.filter(a=>!selectedIds.has(a.id));
+  selectedIds.clear();
+  updateAll();
+  toast('Deleted!','ok');
+}
+
+async function deleteOneAd(id) {
+  if(!confirm('Delete this ad?')) return;
+  if(!String(id).startsWith('demo_')) {
+    try {
+      const r = await fetch('/api/ads/db/' + encodeURIComponent(id), {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+      });
+      if(!r.ok) throw new Error('Delete failed');
+    } catch(e) { toast('Server delete failed, removing locally','err'); }
+  }
+  ads = ads.filter(a => a.id !== id);
+  favs.delete(id);
+  selectedIds.delete(id);
+  updateAll();
+  toast('Ad deleted','ok');
+}
 
 // Favorites
 function toggleFav(id, btn) {
@@ -1008,7 +1045,20 @@ function exportData(data, fmt) {
 }
 function dl(blob,name){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
 
-function clearAll(){if(!confirm('Clear all ads?'))return;ads=[];favs.clear();selectedIds.clear();updateAll();toast('Cleared!','ok');}
+async function clearAll(){
+  if(!confirm('Clear all ads?'))return;
+  const realIds = ads.filter(a=>!String(a.id).startsWith('demo_')).map(a=>a.id);
+  if(realIds.length) {
+    try {
+      await fetch('/api/ads/db', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
+        body: JSON.stringify({ ids: realIds })
+      });
+    } catch(e) {}
+  }
+  ads=[];favs.clear();selectedIds.clear();updateAll();toast('Cleared!','ok');
+}
 
 // ═══════════════════════════════════
 // NAVIGATION
