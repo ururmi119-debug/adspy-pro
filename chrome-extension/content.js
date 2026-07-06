@@ -205,8 +205,10 @@ function makePanel() {
   row1.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
 
   var brand = document.createElement('div');
-  brand.style.cssText = 'font-size:13px;font-weight:800;color:#fff;margin-right:4px;white-space:nowrap;';
+  brand.style.cssText = 'font-size:13px;font-weight:800;color:#fff;margin-right:4px;white-space:nowrap;cursor:pointer;';
   brand.innerHTML = '🔍 Ad<span style="color:#3b82f6">Radar</span> <span style="font-size:9px;color:#475569;font-weight:400;">v5.2.0</span>';
+  brand.title = 'Open Dashboard';
+  brand.addEventListener('click', function(){ window.open(API_BASE, '_blank'); });
   row1.appendChild(brand);
 
   var btnAccents = { scan:'#fbbf24', filter:'#22c55e', compete:'#ec4899', large:'#ffffff', gallery:'#fbbf24', live:'#06b6d4', auto:'#3b82f6' };
@@ -221,8 +223,10 @@ function makePanel() {
   }
 
   addBtn('scan', '🔄 Scan', function(){ setScanning(!ADSPY_UI.scanning); });
+  addBtn('dashboard', '📊 Dashboard', function(){ window.open(API_BASE, '_blank'); });
   addBtn('filter', '⚡ Filter', function(){ toggleFilterPanel(); });
   addBtn('compete', '🎗 Compete', function(){ toggleCompete(); });
+  styleBtn(btnRefs.dashboard, true, '#3b82f6');
 
   var starBox = document.createElement('div');
   starBox.style.cssText = 'display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:7px;background:rgba(255,255,255,0.04);font-size:11px;font-weight:700;color:#fbbf24;white-space:nowrap;';
