@@ -372,6 +372,7 @@ function toggleLarge() {
   ADSPY_UI.largeOn = !ADSPY_UI.largeOn;
   document.body.classList.toggle('adspy-large-mode', ADSPY_UI.largeOn);
   updateToolbarActiveStates();
+  showToast(ADSPY_UI.largeOn ? 'Applying large creative...' : 'Reverting to normal size', ADSPY_UI.largeOn ? 'Laying out ad cards' : '', 1600);
 }
 
 function toggleGallery() {
@@ -387,6 +388,7 @@ function toggleGallery() {
     }
   }
   updateToolbarActiveStates();
+  showToast(ADSPY_UI.galleryOn ? 'Gallery mode on' : 'Gallery mode off', ADSPY_UI.galleryOn ? 'Highlighting ads by phase color' : '', 1600);
 }
 
 function toggleLive() {
