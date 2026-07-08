@@ -497,7 +497,10 @@ function extractDomain(url) {
 app.post('/api/extension/sync', authMiddleware, async (req, res) => {
   const { ads } = req.body;
 
+  console.log(`📥 Extension sync request received: ${Array.isArray(ads) ? ads.length : 0} ads`);
+
   if (!Array.isArray(ads) || ads.length === 0) {
+    console.log('⚠️ Sync rejected: empty or invalid ads array');
     return res.status(400).json({ error: 'ads array is required and must not be empty' });
   }
 
@@ -565,6 +568,7 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
 // Fire-and-forget backup to Google Sheets — doesn't block or fail the response
     backupToGoogleSheets(ads).catch(() => {});
 
+    console.log(`✅ Sync complete: ${synced} synced, ${failed} failed. Sample ids: ${ads.slice(0,3).map(a=>a.id).join(', ')}`);
     res.json({ synced, failed, total: ads.length });
 });
 
