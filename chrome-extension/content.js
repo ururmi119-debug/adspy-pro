@@ -239,7 +239,8 @@ function makePanel() {
   addBtn('gallery', '🖼 Gallery', function(){ toggleGallery(); });
   addBtn('live', '📡 Live', function(){ toggleLive(); });
   addBtn('auto', '⚡ Auto', function(){ toggleAutoScroll(); });
-  addBtn('clear', '🗑', function(){ clearData(); });
+  addBtn('clear', '🗑 Clear', function(){ clearData(); });
+  styleBtn(btnRefs.clear, true, '#ef4444');
 
   wrap.appendChild(row1);
 
