@@ -537,6 +537,12 @@ function getAuthToken() {
 }
 function showApp() {
   document.getElementById('loginScreen').style.display = 'none';
+  setTimeout(() => {
+    loadFromDB(true);
+    if(!window._adradarPollRef) {
+      window._adradarPollRef = setInterval(() => loadFromDB(true), 30000);
+    }
+  }, 0);
 }
 function showLogin() {
   document.getElementById('loginScreen').style.display = 'flex';
@@ -676,8 +682,8 @@ function loadDemo() {
 }
 
 
-  async function loadFromDB() {
-  setApiSt('connecting','Loading synced ads...');
+  async function loadFromDB(silent) {
+  if(!silent) setApiSt('connecting','Loading synced ads...');
   try {
     const url = `${window.location.origin}/api/ads/db?status=all&limit=200`;
     const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
@@ -687,10 +693,10 @@ function loadDemo() {
     ads = [...ads, ...newAds];
     setApiSt('ok',`Connected · ${ads.length} ads`);
     updateAll();
-    toast(`${d.ads.length} synced ads loaded!`,'ok');
+    if(!silent) toast(`${d.ads.length} synced ads loaded!`,'ok');
+    else if(newAds.length) toast(`${newAds.length} new ad${newAds.length>1?'s':''} synced`,'ok');
   } catch(e) {
-    setApiSt('err','Error');
-    toast(e.message.slice(0,60),'err');
+    if(!silent) { setApiSt('err','Error'); toast(e.message.slice(0,60),'err'); }
   }
 }
 
