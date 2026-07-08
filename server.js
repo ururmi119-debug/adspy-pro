@@ -632,6 +632,8 @@ app.get('/api/ads/db', authMiddleware, async (req, res) => {
       countryCount: r.country_count,
       isShopify: (r.landing_url || '').includes('myshopify.com'),
       startDate: r.first_seen_at ? new Date(r.first_seen_at).toLocaleDateString('en-US') : '—',
+      firstSeenAt: r.first_seen_at,
+      lastSeenAt: r.last_seen_at,
       status: r.status
     }));
 
