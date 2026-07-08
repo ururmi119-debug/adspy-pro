@@ -1,683 +1,1097 @@
-// AdRadar v5.2.0 - Full toolbar redesign: Scan/Filter/Compete/Large/Export/Gallery/Live/Auto + category & model chips
-var API_BASE = 'https://adspy-pro-vc7w.onrender.com';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AdRadar v5.1.7</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080b12;
+  --s1: #0d1117;
+  --s2: #111827;
+  --s3: #1a2236;
+  --b1: #1e2d4a;
+  --b2: #243755;
+  --tx: #e2e8f0;
+  --t2: #94a3b8;
+  --t3: #475569;
+  --acc: #3b82f6;
+  --hot: #ef4444;
+  --win: #22c55e;
+  --cas: #f59e0b;
+  --sca: #3b82f6;
+  --val: #8b5cf6;
+  --leg: #fbbf24;
+  --pod: #06b6d4;
+  --drop:#f97316;
+  --jwl: #ec4899;
+  --dig: #10b981;
+  --amz: #f59e0b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;display:flex;height:100vh;overflow:hidden}
 
-var ADSPY = {
-  total:0, hot:0, winning:0, pod:0,
-  phaseCounts:{Testing:0,Validating:0,Winning:0,Scaling:0,'Cash Cow':0,HOT:0,Legend:0},
-  modelCounts:{Dropship:0,POD:0,Jewelry:0,Digital:0,Amazon:0,'Sub Box':0},
-  shopifyCount:0, multiCount:0
-};
-var ADSPY_UI = { scanning:true, filterOn:true, competeOn:false, largeOn:false, galleryOn:false, liveOn:true, autoScrollOn:false, category:'All', model:null };
-var processed = [];
-var scanIntervalRef=null, mutationObsRef=null, autoScrollIntervalRef=null, syncIntervalRef=null, scanTimeout=null;
+/* ── SIDEBAR ── */
+.sb{width:220px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb::-webkit-scrollbar{width:3px}
+.sb::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px}
+.sb-logo-txt{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:#fff}
+.sb-logo-txt span{color:var(--acc)}
+.sb-logo-ver{font-size:9px;color:var(--t3);font-family:'Space Mono',monospace;margin-left:auto}
+.sb-sec{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:14px 16px 5px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:500;color:var(--t2);transition:all .12s;border-left:2px solid transparent;user-select:none}
+.sb-item:hover{background:var(--s2);color:var(--tx)}
+.sb-item.on{background:var(--s2);color:var(--tx);border-left-color:var(--acc)}
+.sb-item .ico{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.sb-cnt{margin-left:auto;font-size:10px;font-family:'Space Mono',monospace;background:var(--s3);color:var(--t3);padding:1px 6px;border-radius:8px}
+.sb-item.on .sb-cnt{background:rgba(59,130,246,.15);color:var(--acc)}
 
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── TOPBAR ── */
+.tb{display:flex;align-items:center;gap:8px;padding:10px 20px;background:var(--s1);border-bottom:1px solid var(--b1);flex-shrink:0}
+.tb-title{font-size:14px;font-weight:600;color:var(--tx);margin-right:4px}
+.tb-search{flex:1;max-width:400px;position:relative}
+.tb-search input{width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:7px 12px 7px 32px;color:var(--tx);font-size:12px;font-family:'DM Sans',sans-serif;outline:none;transition:border .15s}
+.tb-search input:focus{border-color:var(--acc)}
+.tb-search input::placeholder{color:var(--t3)}
+.tb-search-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:13px}
+.tb-actions{display:flex;gap:6px;margin-left:auto}
+.tb-btn{padding:6px 12px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-family:'DM Sans',sans-serif;transition:all .12s;white-space:nowrap}
+.tb-btn:hover{background:var(--s3);color:var(--tx)}
+.tb-btn.prim{background:var(--acc);border-color:var(--acc);color:#fff}
+.tb-btn.prim:hover{background:#2563eb}
+.notif{width:30px;height:30px;border-radius:50%;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;position:relative}
+.notif-dot{width:7px;height:7px;border-radius:50%;background:var(--hot);position:absolute;top:4px;right:4px;border:1px solid var(--s1)}
+
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:20px}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* ── PAGE SECTIONS ── */
+.page{display:none}
+.page.on{display:block}
+
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;transition:border-color .15s}
+.stat-card:hover{border-color:var(--b2)}
+.stat-val{font-size:22px;font-weight:700;font-family:'Space Mono',monospace;margin-bottom:2px}
+.stat-lbl{font-size:11px;color:var(--t2);font-weight:500}
+.stat-delta{font-size:10px;color:var(--win);margin-top:3px;font-family:'Space Mono',monospace}
+
+/* ── AD GRID ── */
+.grid-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.grid-title{font-size:14px;font-weight:600}
+.grid-controls{display:flex;gap:6px}
+.gc-btn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-family:'DM Sans',sans-serif;transition:all .12s}
+.gc-btn:hover,.gc-btn.on{background:var(--s3);color:var(--tx);border-color:var(--b2)}
+
+.ads-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.ads-grid.lg{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+.ads-grid.list{grid-template-columns:1fr}
+
+.ad-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;cursor:pointer;transition:all .18s}
+.ad-card:hover{border-color:var(--b2);transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.ad-img{height:140px;background:var(--s2);display:flex;align-items:center;justify-content:center;position:relative;font-size:28px;color:var(--b2)}
+.ad-img.lg{height:200px}
+.phase-b{position:absolute;top:8px;left:8px;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-family:'Space Mono',monospace}
+.model-b{position:absolute;top:8px;right:8px;padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;background:rgba(0,0,0,.7);color:var(--t2);border:1px solid var(--b1)}
+.conf-b{position:absolute;bottom:8px;right:8px;font-size:9px;font-family:'Space Mono',monospace;color:var(--t3);background:rgba(0,0,0,.6);padding:2px 6px;border-radius:3px}
+.score-line{position:absolute;bottom:0;left:0;height:2px;background:linear-gradient(90deg,var(--acc),var(--win))}
+
+.ad-body{padding:10px 12px}
+.ad-page{font-size:12px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-txt{font-size:11px;color:var(--t3);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:8px}
+.ad-chips{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px}
+.chip{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600;border:1px solid var(--b1);color:var(--t3)}
+.chip.act{color:var(--win);border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.06)}
+.chip.inact{color:var(--hot);border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.06)}
+.chip.shp{color:var(--win);border-color:rgba(34,197,94,.2)}
+.ad-foot{display:flex;align-items:center;justify-content:space-between;padding-top:7px;border-top:1px solid var(--b1)}
+.ad-days{font-size:10px;color:var(--t3);font-family:'Space Mono',monospace}
+.ad-days strong{color:var(--acc)}
+.ad-acts{display:flex;gap:3px}
+.aact{width:22px;height:22px;border-radius:4px;cursor:pointer;background:var(--s2);border:1px solid var(--b1);color:var(--t3);font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.aact:hover{color:var(--acc);border-color:var(--acc)}
+
+/* List view card */
+.ad-card.list-card{display:grid;grid-template-columns:180px 1fr auto;align-items:center}
+.ad-card.list-card .ad-img{width:180px;height:80px}
+.ad-card.list-card .ad-body{border-left:1px solid var(--b1)}
+.ad-card.list-card .ad-foot{flex-direction:column;gap:6px;padding:10px 12px;border-top:none;border-left:1px solid var(--b1);min-width:120px}
+
+/* ── FILTERS BAR ── */
+.filter-bar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.fb-tag{padding:5px 11px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--b1);color:var(--t3);background:transparent;transition:all .12s;white-space:nowrap}
+.fb-tag:hover,.fb-tag.on{border-color:var(--acc);color:var(--acc);background:rgba(59,130,246,.08)}
+.fb-sep{width:1px;height:20px;background:var(--b1);margin:0 2px}
+
+/* ── SECTION CARDS ── */
+.sec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.sec-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;cursor:pointer;transition:all .15s}
+.sec-card:hover{border-color:var(--acc);background:var(--s2)}
+.sec-card-ico{font-size:24px;margin-bottom:10px}
+.sec-card-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.sec-card-sub{font-size:11px;color:var(--t3);line-height:1.5}
+
+/* ── ANALYTICS ── */
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.ana-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px}
+.ana-title{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bar-label{font-size:11px;color:var(--t2);width:80px;flex-shrink:0}
+.bar-wrap{flex:1;height:6px;background:var(--s2);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.bar-val{font-size:10px;color:var(--t3);font-family:'Space Mono',monospace;width:40px;text-align:right}
+
+/* ── DOMAIN TABLE ── */
+.table{width:100%;border-collapse:collapse}
+.table th{text-align:left;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;padding:8px 12px;border-bottom:1px solid var(--b1)}
+.table td{padding:9px 12px;font-size:12px;border-bottom:1px solid var(--b1);color:var(--t2)}
+.table tr:hover td{background:var(--s2);color:var(--tx)}
+.table tr:last-child td{border-bottom:none}
+.td-badge{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700}
+
+/* ── EMPTY ── */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;text-align:center;gap:12px}
+.empty-ico{width:52px;height:52px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.empty h3{font-size:14px;font-weight:600}
+.empty p{font-size:12px;color:var(--t3);max-width:280px;line-height:1.7}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(5,7,12,.88);z-index:100;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:var(--s1);border:1px solid var(--b1);border-radius:14px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
+.modal::-webkit-scrollbar{width:3px}
+.modal::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+.m-hdr{padding:14px 18px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
+.m-hdr h3{font-size:13px;font-weight:600}
+.m-cls{width:26px;height:26px;border-radius:6px;background:var(--s2);border:1px solid var(--b1);cursor:pointer;color:var(--t3);font-size:13px;display:flex;align-items:center;justify-content:center}
+.m-row{display:flex;justify-content:space-between;padding:8px 18px;border-bottom:1px solid var(--b1);gap:12px}
+.m-row:last-child{border-bottom:none}
+.m-key{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;font-family:'Space Mono',monospace}
+.m-val{font-size:11px;color:var(--tx);text-align:right;word-break:break-all}
+.m-val a{color:var(--acc);text-decoration:none}
+.m-preview{position:relative;width:100%;height:220px;background:var(--s2);overflow:hidden}
+.m-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.m-preview-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:48px;font-weight:700;color:rgba(255,255,255,.85)}
+.m-preview-link{position:absolute;bottom:10px;right:10px;cursor:pointer}
+.m-hero{padding:16px 18px;border-bottom:1px solid var(--b1)}
+.m-hero-top{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.m-stat-row{display:flex;gap:10px}
+.m-stat{flex:1;background:var(--s2);border-radius:8px;padding:10px 12px}
+.m-stat-lbl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-family:'Space Mono',monospace;margin-bottom:4px}
+.m-stat-val{font-size:18px;color:var(--tx);font-weight:600;margin-bottom:6px}
+.m-stat-val span{font-size:11px;color:var(--t3);font-weight:400}
+.m-bar{height:5px;background:var(--s3);border-radius:3px;overflow:hidden}
+.m-bar-fill{height:100%;border-radius:3px}
+.m-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--b1)}
+.m-cell{background:var(--s1);padding:10px 14px}
+.m-cell-key{font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-family:'Space Mono',monospace;margin-bottom:3px}
+.m-cell-val{font-size:12px;color:var(--tx);word-break:break-word}
+.m-cell-val a{color:var(--acc);text-decoration:none}
+.m-section{padding:14px 18px;border-top:1px solid var(--b1)}
+.m-section-title{font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;font-family:'Space Mono',monospace}
+.m-adtext{font-size:12px;color:var(--t2);line-height:1.6;background:var(--s2);padding:10px 12px;border-radius:8px;border-left:2px solid var(--acc)}
+.m-meta-row{padding:10px 18px 16px;border-top:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:16px;right:16px;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 16px;font-size:12px;font-weight:500;color:var(--tx);z-index:200;opacity:0;transform:translateY(16px);transition:all .25s;pointer-events:none;max-width:260px}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{border-color:rgba(34,197,94,.4);color:var(--win)}
+.toast.err{border-color:rgba(239,68,68,.4);color:var(--hot)}
+
+/* ── FAVORITES ── */
+.fav-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.fav-card{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px;cursor:pointer;transition:all .12s}
+.fav-card:hover{border-color:var(--acc)}
+.fav-title{font-size:12px;font-weight:600;margin-bottom:4px}
+.fav-sub{font-size:10px;color:var(--t3)}
+
+/* ── PROFILE ── */
+.profile-card{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:24px;max-width:500px}
+.profile-avatar{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--val));display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:14px}
+.profile-name{font-size:16px;font-weight:700;margin-bottom:4px}
+.profile-email{font-size:12px;color:var(--t3);margin-bottom:16px}
+.profile-field{margin-bottom:12px}
+.profile-field label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px}
+.profile-field input{width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif}
+.profile-field input:focus{border-color:var(--acc)}
+
+/* ── BACKUP ── */
+.backup-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:500px}
+.bk-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;cursor:pointer;transition:all .15s;text-align:center}
+.bk-card:hover{border-color:var(--acc);background:var(--s2)}
+.bk-ico{font-size:28px;margin-bottom:8px}
+.bk-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.bk-sub{font-size:10px;color:var(--t3)}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" style="position:fixed;inset:0;background:#0a0e1a;display:flex;align-items:center;justify-content:center;z-index:9999;">
+  <div style="width:340px;padding:36px 32px;background:#111827;border:1px solid #1f2937;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+    <div style="text-align:center;margin-bottom:28px;">
+      <span style="font-size:28px">🔍</span>
+      <div style="font-size:20px;font-weight:700;color:#fff;margin-top:6px;">Ad<span style="color:#3b82f6">Radar</span></div>
+      <div style="font-size:13px;color:#6b7280;margin-top:4px;">Sign in to continue</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11px;color:#9ca3af;letter-spacing:.05em;display:block;margin-bottom:6px;">USERNAME</label>
+      <input type="text" id="loginUser" placeholder="Username" style="width:100%;padding:11px 14px;background:#0a0e1a;border:1px solid #1f2937;border-radius:8px;color:#fff;font-size:14px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div style="margin-bottom:18px;">
+      <label style="font-size:11px;color:#9ca3af;letter-spacing:.05em;display:block;margin-bottom:6px;">PASSWORD</label>
+      <input type="password" id="loginPass" placeholder="Password" style="width:100%;padding:11px 14px;background:#0a0e1a;border:1px solid #1f2937;border-radius:8px;color:#fff;font-size:14px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button onclick="doLogin()" style="width:100%;padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Sign In</button>
+    <div id="loginError" style="color:#ef4444;font-size:13px;margin-top:12px;text-align:center;display:none;"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modBg" onclick="closeMod(event)">
+  <div class="modal">
+    <div class="m-hdr"><h3 id="modTitle">Ad Details</h3><div class="m-cls" onclick="document.getElementById('modBg').classList.remove('show')">✕</div></div>
+    <div id="modBody"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- SIDEBAR -->
+<div class="sb">
+  <div class="sb-logo">
+    <span style="font-size:16px">🔍</span>
+    <span class="sb-logo-txt">Ad<span>Radar</span></span>
+    <span class="sb-logo-ver">v5.1.7</span>
+  </div>
+
+  <div class="sb-sec">Main</div>
+  <div class="sb-item on" data-page="dashboard" onclick="nav(this)"><span class="ico">📊</span>Dashboard<span class="sb-cnt" id="sb-total">0</span></div>
+  <div class="sb-item" data-page="search" onclick="nav(this)"><span class="ico">🔍</span>Search</div>
+  <div class="sb-item" data-page="totalads" onclick="nav(this)"><span class="ico">📋</span>Total Ads<span class="sb-cnt" id="sb-ads">0</span></div>
+  <div class="sb-item" data-page="hotpicks" onclick="nav(this)"><span class="ico">🔥</span>Hot Picks<span class="sb-cnt" id="sb-hot" style="background:rgba(239,68,68,.15);color:#ef4444">0</span></div>
+
+  <div class="sb-sec">Tools</div>
+  <div class="sb-item" data-page="domain" onclick="nav(this)"><span class="ico">🌐</span>Domain</div>
+  <div class="sb-item" data-page="archive" onclick="nav(this)"><span class="ico">📦</span>Archive</div>
+  <div class="sb-item" data-page="favorites" onclick="nav(this)"><span class="ico">⭐</span>Favorites<span class="sb-cnt" id="sb-fav">0</span></div>
+  <div class="sb-item" data-page="dupes" onclick="nav(this)"><span class="ico">🔁</span>Dupes</div>
+  <div class="sb-item" data-page="batches" onclick="nav(this)"><span class="ico">⚡</span>Batches</div>
+
+  <div class="sb-sec">Views</div>
+  <div class="sb-item" data-page="gridview" onclick="nav(this)"><span class="ico">⊞</span>Grid View</div>
+  <div class="sb-item" data-page="listview" onclick="nav(this)"><span class="ico">☰</span>List View</div>
+
+  <div class="sb-sec">Account</div>
+  <div class="sb-item" data-page="select" onclick="nav(this)"><span class="ico">✓</span>Select</div>
+  <div class="sb-item" data-page="backup" onclick="nav(this)"><span class="ico">💾</span>Backup</div>
+  <div class="sb-item" data-page="profile" onclick="nav(this)"><span class="ico">👤</span>Profile</div>
+  <div class="sb-item" onclick="logout()"><span class="ico">🚪</span>Logout</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- TOPBAR -->
+  <div class="tb">
+    <div class="tb-title" id="pageTitle">Dashboard</div>
+    <div class="tb-search">
+      <span class="tb-search-ico">🔍</span>
+      <input type="text" placeholder="Search ads, products, stores..." id="globalSearch" oninput="globalSearchFn()">
+    </div>
+    <div class="tb-actions">
+      <button class="tb-btn" onclick="loadDemo()">📥 Load Demo</button>
+      <button class="tb-btn" onclick="loadFromDB()">🗄️ Synced Ads</button>
+      <button class="tb-btn prim" onclick="nav(document.querySelector('[data-page=search]'))">+ Fetch Ads</button>
+      <div class="notif">🔔<div class="notif-dot"></div></div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page on" id="page-dashboard">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-val" id="d-total" style="color:var(--tx)">0</div><div class="stat-lbl">Total Ads</div><div class="stat-delta" id="d-today">+0 today</div></div>
+        <div class="stat-card"><div class="stat-val" id="d-active" style="color:var(--win)">0</div><div class="stat-lbl">Active Ads</div></div>
+        <div class="stat-card"><div class="stat-val" id="d-hot" style="color:var(--hot)">0</div><div class="stat-lbl">🔥 HOT</div></div>
+        <div class="stat-card"><div class="stat-val" id="d-pod" style="color:var(--pod)">0</div><div class="stat-lbl">POD Ads</div></div>
+        <div class="stat-card"><div class="stat-val" id="d-win" style="color:var(--win)">0</div><div class="stat-lbl">Winning+</div></div>
+      </div>
+
+      <div class="analytics-grid">
+        <div class="ana-card">
+          <div class="ana-title">Phase Breakdown</div>
+          <div id="phase-bars"></div>
+        </div>
+        <div class="ana-card">
+          <div class="ana-title">Model Breakdown</div>
+          <div id="model-bars"></div>
+        </div>
+      </div>
+
+      <div class="grid-header"><div class="grid-title">Recent Ads</div></div>
+      <div class="ads-grid" id="dash-grid"></div>
+    </div>
+
+    <!-- ── SEARCH ── -->
+    <div class="page" id="page-search">
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;max-width:600px;margin-bottom:20px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:14px">🔍 Fetch Real Ads from Meta</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Access Token</label>
+          <input type="password" id="s-tok" placeholder="EAABsbCS..." style="width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Search Query</label>
+            <input type="text" id="s-qry" placeholder="Islamic t-shirt..." style="width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif"></div>
+            <div><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Country</label>
+            <select id="s-ctr" style="width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif">
+              <option value="US">🇺🇸 US</option><option value="GB">🇬🇧 UK</option><option value="AU">🇦🇺 AU</option><option value="CA">🇨🇦 CA</option></select></div>
+            <div><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Limit</label>
+            <select id="s-lim" style="width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'DM Sans',sans-serif">
+              <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="tb-btn prim" style="flex:1;padding:10px" onclick="fetchAds()">🔍 Fetch Ads from Meta</button>
+            <button class="tb-btn" onclick="loadDemo()">Demo Data</button>
+          </div>
+          <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:7px;padding:10px;font-size:10px;color:rgba(59,130,246,.8);line-height:1.7">
+            <strong style="color:var(--acc)">Get Free Token:</strong> developers.facebook.com/tools/explorer → ads_read permission → Generate token
+          </div>
+        </div>
+        <div class="api-status" style="display:flex;align-items:center;gap:6px;margin-top:10px">
+          <div style="width:6px;height:6px;border-radius:50%;background:var(--t3)" id="api-dot"></div>
+          <span style="font-size:10px;color:var(--t3);font-family:'Space Mono',monospace" id="api-txt">Not connected</span>
+        </div>
+      </div>
+      <div class="grid-header"><div class="grid-title">Search Results</div></div>
+      <div class="ads-grid" id="search-grid"><div class="empty"><div class="empty-ico">🔍</div><h3>Enter token & query above</h3><p>Fetch real ads from Meta Ad Library or load demo data.</p></div></div>
+    </div>
+
+    <!-- ── TOTAL ADS ── -->
+    <div class="page" id="page-totalads">
+      <div class="filter-bar">
+        <div class="fb-tag on" data-f="all" onclick="filterAll(this)">All</div>
+        <div class="fb-tag" data-f="Testing" onclick="filterPhase(this)">🧪 Testing</div>
+        <div class="fb-tag" data-f="Validating" onclick="filterPhase(this)">🔬 Validating</div>
+        <div class="fb-tag" data-f="Winning" onclick="filterPhase(this)">✅ Winning</div>
+        <div class="fb-tag" data-f="Scaling" onclick="filterPhase(this)">🚀 Scaling</div>
+        <div class="fb-tag" data-f="Cash Cow" onclick="filterPhase(this)">💰 Cash Cow</div>
+        <div class="fb-tag" data-f="HOT" onclick="filterPhase(this)">🔥 HOT</div>
+        <div class="fb-tag" data-f="Legend" onclick="filterPhase(this)">👑 Legend</div>
+        <div class="fb-sep"></div>
+        <div class="fb-tag" data-f="active" onclick="filterQuick(this,'active')">Active Only</div>
+        <div class="fb-tag" data-f="shopify" onclick="filterQuick(this,'shopify')">Shopify</div>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="gc-btn" onclick="sortAds('date')">Sort: Date</button>
+          <button class="gc-btn" onclick="sortAds('score')">Sort: Score</button>
+          <button class="gc-btn" onclick="exportCSV()">Export CSV</button>
+        </div>
+      </div>
+      <div class="ads-grid" id="total-grid"></div>
+    </div>
+
+    <!-- ── HOT PICKS ── -->
+    <div class="page" id="page-hotpicks">
+      <div class="sec-grid" style="margin-bottom:20px">
+        <div class="sec-card" onclick="filterHot('HOT')"><div class="sec-card-ico">🔥</div><div class="sec-card-title">HOT Ads</div><div class="sec-card-sub" id="hp-hot-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('Winning')"><div class="sec-card-ico">✅</div><div class="sec-card-title">Winning Products</div><div class="sec-card-sub" id="hp-win-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('Scaling')"><div class="sec-card-ico">🚀</div><div class="sec-card-title">Viral Ads</div><div class="sec-card-sub" id="hp-sca-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('Cash Cow')"><div class="sec-card-ico">💰</div><div class="sec-card-title">Cash Cows</div><div class="sec-card-sub" id="hp-cas-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('Legend')"><div class="sec-card-ico">👑</div><div class="sec-card-title">Legends</div><div class="sec-card-sub" id="hp-leg-cnt">0 ads</div></div>
+        <div class="sec-card" onclick="filterHot('POD')"><div class="sec-card-ico">🎁</div><div class="sec-card-title">AI Recommended</div><div class="sec-card-sub">Top POD ads</div></div>
+      </div>
+      <div class="grid-header"><div class="grid-title" id="hp-grid-title">All Hot Picks</div></div>
+      <div class="ads-grid" id="hot-grid"></div>
+    </div>
+
+    <!-- ── DOMAIN ── -->
+    <div class="page" id="page-domain">
+      <div class="grid-header"><div class="grid-title">Top Performing Domains</div><button class="gc-btn" onclick="exportCSV()">Export</button></div>
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden">
+        <table class="table">
+          <thead><tr><th>#</th><th>Domain</th><th>Ads</th><th>Phase</th><th>Model</th><th>Active</th></tr></thead>
+          <tbody id="domain-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── ARCHIVE ── -->
+    <div class="page" id="page-archive">
+      <div class="filter-bar">
+        <div class="fb-tag on" onclick="this.classList.add('on')">All Archived</div>
+        <div class="fb-tag" onclick="">Expired Ads</div>
+        <div class="fb-tag" onclick="">Old Campaigns</div>
+      </div>
+      <div class="ads-grid" id="archive-grid"></div>
+    </div>
+
+    <!-- ── FAVORITES ── -->
+    <div class="page" id="page-favorites">
+      <div class="grid-header"><div class="grid-title">Saved Ads</div></div>
+      <div class="ads-grid" id="fav-grid">
+        <div class="empty"><div class="empty-ico">⭐</div><h3>No favorites yet</h3><p>Click ⭐ on any ad to save it here.</p></div>
+      </div>
+    </div>
+
+    <!-- ── SELECT ── -->
+    <div class="page" id="page-select">
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px">Bulk Actions</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="tb-btn" onclick="selectAll()">✓ Select All</button>
+          <button class="tb-btn" onclick="deselectAll()">✗ Deselect All</button>
+          <button class="tb-btn" onclick="exportSelected()">📊 Export Selected</button>
+          <button class="tb-btn" onclick="deleteSelected()" style="color:var(--hot);border-color:rgba(239,68,68,.3)">🗑 Delete Selected</button>
+          <span style="font-size:11px;color:var(--t3);align-self:center;margin-left:4px" id="sel-count">0 selected</span>
+        </div>
+      </div>
+      <div class="ads-grid" id="select-grid"></div>
+    </div>
+
+    <!-- ── BACKUP ── -->
+    <div class="page" id="page-backup">
+      <div class="grid-header"><div class="grid-title">Backup & Export</div></div>
+      <div class="backup-grid">
+        <div class="bk-card" onclick="exportCSV()"><div class="bk-ico">📊</div><div class="bk-title">Export CSV</div><div class="bk-sub">All ads as spreadsheet</div></div>
+        <div class="bk-card" onclick="exportJSON()"><div class="bk-ico">{ }</div><div class="bk-title">Export JSON</div><div class="bk-sub">Raw data format</div></div>
+        <div class="bk-card" onclick="exportExcel()"><div class="bk-ico">📑</div><div class="bk-title">Export Excel</div><div class="bk-sub">Excel compatible</div></div>
+        <div class="bk-card"><div class="bk-ico">☁️</div><div class="bk-title">Cloud Backup</div><div class="bk-sub">Coming soon</div></div>
+        <div class="bk-card" onclick="clearAll()"><div class="bk-ico">🗑</div><div class="bk-title">Clear All Data</div><div class="bk-sub">Remove all collected ads</div></div>
+        <div class="bk-card"><div class="bk-ico">📥</div><div class="bk-title">Restore Data</div><div class="bk-sub">Import from backup</div></div>
+      </div>
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;max-width:400px;margin-top:8px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Storage Info</div>
+        <div style="font-size:11px;color:var(--t3)">Total ads collected: <strong style="color:var(--tx)" id="bk-count">0</strong></div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">Last updated: <strong style="color:var(--tx)" id="bk-date">—</strong></div>
+      </div>
+    </div>
+
+    <!-- ── DUPES ── -->
+    <div class="page" id="page-dupes">
+      <div class="grid-header"><div class="grid-title">Duplicate Ads</div></div>
+      <div class="ads-grid" id="dupes-grid"></div>
+    </div>
+
+    <!-- ── BATCHES ── -->
+    <div class="page" id="page-batches">
+      <div class="sec-grid">
+        <div class="sec-card" onclick="exportCSV()"><div class="sec-card-ico">📥</div><div class="sec-card-title">Bulk Download</div><div class="sec-card-sub">Download all ads at once</div></div>
+        <div class="sec-card"><div class="sec-card-ico">🏷️</div><div class="sec-card-title">Bulk Tagging</div><div class="sec-card-sub">Tag multiple ads</div></div>
+        <div class="sec-card" onclick="clearAll()"><div class="sec-card-ico">🗑</div><div class="sec-card-title">Bulk Delete</div><div class="sec-card-sub">Delete selected ads</div></div>
+        <div class="sec-card" onclick="exportCSV()"><div class="sec-card-ico">📊</div><div class="sec-card-title">Batch Export</div><div class="sec-card-sub">Export in batches</div></div>
+      </div>
+    </div>
+
+    <!-- ── GRID VIEW ── -->
+    <div class="page" id="page-gridview">
+      <div class="grid-header"><div class="grid-title">Grid View</div>
+        <div class="grid-controls">
+          <button class="gc-btn on" onclick="setGridMode('normal',this)">Normal</button>
+          <button class="gc-btn" onclick="setGridMode('large',this)">Large</button>
+        </div>
+      </div>
+      <div class="ads-grid" id="gv-grid"></div>
+    </div>
+
+    <!-- ── LIST VIEW ── -->
+    <div class="page" id="page-listview">
+      <div class="grid-header"><div class="grid-title">List View</div></div>
+      <div class="ads-grid list" id="lv-grid"></div>
+    </div>
+
+    <!-- ── PROFILE ── -->
+    <div class="page" id="page-profile">
+      <div class="profile-card">
+        <div class="profile-avatar">👤</div>
+        <div class="profile-name">AdRadar User</div>
+        <div class="profile-email">Meta Ad Intelligence Tool v5.1.7</div>
+        <div class="profile-field"><label>API Endpoint</label><input type="text" value="https://adspy-pro-vc7w.onrender.com" readonly></div>
+        <div class="profile-field"><label>GitHub Repo</label><input type="text" value="github.com/ururmi119-debug/adspy-pro" readonly></div>
+        <div class="profile-field"><label>Version</label><input type="text" value="AdRadar v5.1.7 — Advanced AI Engine v2" readonly></div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="tb-btn prim" onclick="toast('Settings saved!','ok')">Save Settings</button>
+          <button class="tb-btn" style="color:var(--hot);border-color:rgba(239,68,68,.3)" onclick="clearAll()">Clear All Data</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// ═══════════════════════════════════
+// AUTH / LOGIN
+// ═══════════════════════════════════
+function getAuthToken() {
+  return sessionStorage.getItem('adradar_token') || '';
+}
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  setTimeout(() => {
+    loadFromDB(true);
+    if(!window._adradarPollRef) {
+      window._adradarPollRef = setInterval(() => loadFromDB(true), 30000);
+    }
+  }, 0);
+}
+function showLogin() {
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+async function doLogin() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  if (!u || !p) {
+    errEl.textContent = 'Enter username and password';
+    errEl.style.display = 'block';
+    return;
+  }
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.token) {
+      errEl.textContent = data.error || 'Login failed';
+      errEl.style.display = 'block';
+      return;
+    }
+    sessionStorage.setItem('adradar_token', data.token);
+    showApp();
+  } catch (e) {
+    errEl.textContent = 'Network error, try again';
+    errEl.style.display = 'block';
+  }
+}
+function logout() {
+  sessionStorage.removeItem('adradar_token');
+  location.reload();
+}
+// Check auth on page load
+if (getAuthToken()) {
+  showApp();
+} else {
+  showLogin();
+}
+
+// ═══════════════════════════════════
+// STATE
+// ═══════════════════════════════════
+let ads = [], favs = new Set(), selectedIds = new Set();
+let currentPhaseFilter = 'all', currentQuickFilter = null, currentSort = 'date';
+let gridMode = 'normal';
+
+const PHASE_COLORS = {HOT:'#ef4444',Legend:'#fbbf24','Cash Cow':'#f59e0b',Scaling:'#3b82f6',Winning:'#22c55e',Validating:'#8b5cf6',Testing:'#475569'};
+const MODEL_COLORS = {POD:'#06b6d4',Dropship:'#f97316',Jewelry:'#ec4899',Digital:'#10b981',Amazon:'#f59e0b','Sub Box':'#ec4899'};
+
+// ═══════════════════════════════════
+// AI ENGINE
+// ═══════════════════════════════════
 function calcScore(days, dups, countries) {
-  var s = 0;
+  let s = 0;
   if(days>=181)s+=30;else if(days>=91)s+=25;else if(days>=31)s+=20;else if(days>=11)s+=15;else if(days>=4)s+=10;else s+=5;
   if(dups>=30)s+=30;else if(dups>=11)s+=20;else if(dups>=4)s+=10;else if(dups>=2)s+=5;
   if(countries>=15)s+=30;else if(countries>=6)s+=20;else if(countries>=2)s+=10;
   if(days>=90)s+=30;else if(days>=60)s+=20;else if(days>=30)s+=10;
   return s;
 }
-
-function getPhase(days, dups, countries, score) {
-  if(days<=14 && dups>=10 && countries>=3) return 'HOT';
-  if(days>180 && score>150) return 'Legend';
-  if(days>90 && score>110) return 'Cash Cow';
-  if(score>=70 && (countries>3 || dups>5)) return 'Scaling';
-  if(score>=40 && days>=11) return 'Winning';
-  if(score>=20 && days<=10) return 'Validating';
-  return 'Testing';
+function detectPhase(days,dups,countries,score) {
+  if(days<=14&&dups>=10&&countries>=3)return'HOT';
+  if(days>180&&score>150)return'Legend';
+  if(days>90&&score>110)return'Cash Cow';
+  if(score>=70&&(countries>3||dups>5))return'Scaling';
+  if(score>=40&&days>=11)return'Winning';
+  if(score>=20&&days<=10)return'Validating';
+  return'Testing';
+}
+function detectModel(text) {
+  const t=(text||'').toLowerCase();
+  const s={POD:['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','tshirt','hoodie','mug','poster','shirt','calligraphy','hijab','quran','mom','dad','dog','cat','faith'].filter(k=>t.includes(k)).length,Dropship:['free shipping','order now','limited stock','buy now','ships from','worldwide'].filter(k=>t.includes(k)).length,Jewelry:['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond','crystal'].filter(k=>t.includes(k)).length,Digital:['download','ebook','course','digital','template','preset','canva'].filter(k=>t.includes(k)).length,Amazon:['amazon','prime','asin'].filter(k=>t.includes(k)).length,'Sub Box':['subscribe','subscription','monthly box','box club'].filter(k=>t.includes(k)).length};
+  const best=Object.entries(s).sort((a,b)=>b[1]-a[1]);
+  return best[0][1]>0?best[0][0]:'POD';
 }
 
-function getModel(text) {
-  var t = (text||'').toLowerCase();
-  var scores = {
-    POD: ['print','custom','islamic','muslim','motivational','teacher','nurse','tshirt','hoodie','mug','poster','shirt','hijab','quran','mom','dad','dog','cat','faith','personalized','quote'].filter(function(k){return t.indexOf(k)>=0;}).length,
-    Dropship: ['free shipping','order now','buy now','ships from','limited stock'].filter(function(k){return t.indexOf(k)>=0;}).length * 2,
-    Jewelry: ['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond'].filter(function(k){return t.indexOf(k)>=0;}).length * 2,
-    Digital: ['download','ebook','course','digital','template','canva','preset'].filter(function(k){return t.indexOf(k)>=0;}).length * 2,
-    Amazon: ['amazon','prime','asin'].filter(function(k){return t.indexOf(k)>=0;}).length * 5,
-    'Sub Box': ['subscribe','subscription','monthly box','box club'].filter(function(k){return t.indexOf(k)>=0;}).length * 3
-  };
-  var best = 'POD'; var bestScore = 0;
-  for(var m in scores) { if(scores[m] > bestScore) { bestScore = scores[m]; best = m; } }
-  return best;
+// ═══════════════════════════════════
+// FETCH
+// ═══════════════════════════════════
+async function fetchAds() {
+  const tok = document.getElementById('s-tok').value.trim();
+  const q   = document.getElementById('s-qry').value.trim();
+  if(!tok){toast('Enter Access Token!','err');return;}
+  if(!q){toast('Enter search query!','err');return;}
+  setApiSt('connecting','Connecting...');
+  const country = document.getElementById('s-ctr').value;
+  const limit   = document.getElementById('s-lim').value;
+  try {
+    const url = `${window.location.origin}/api/ads?` + new URLSearchParams({access_token:tok,search_terms:q,country,limit});
+    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    const newAds = dedup(d.ads||[]);
+    ads = [...ads, ...newAds];
+    setApiSt('ok',`Connected · ${ads.length} ads`);
+    updateAll();
+    toast(`${d.ads.length} ads fetched!`,'ok');
+  } catch(e) {
+    setApiSt('err','Error');
+    toast(e.message.slice(0,60),'err');
+  }
 }
 
-function getColor(phase) {
-  var c = {All:'#e2e8f0',HOT:'#ef4444',Legend:'#fbbf24','Cash Cow':'#f59e0b',Scaling:'#3b82f6',Winning:'#22c55e',Validating:'#8b5cf6',Testing:'#64748b',Shopify:'#95bf47',Multi:'#06b6d4'};
-  return c[phase] || '#64748b';
+function dedup(n){const ex=new Set(ads.map(a=>a.id));return n.filter(a=>!ex.has(a.id));}
+
+// ═══════════════════════════════════
+// DEMO DATA
+// ═══════════════════════════════════
+function loadDemo() {
+  const raw=[
+    {pageName:"IslamicTeesCo",adText:"Premium Islamic quote t-shirts. Custom prints with beautiful calligraphy. Free shipping over $35!",landingUrl:"islamictees.myshopify.com",runningDays:72,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK, CA",countryCount:3,impressions:"120K–180K",duplicateCount:8},
+    {pageName:"MotivateWear",adText:"Wear your motivation! 100% cotton hoodies with powerful quotes. Limited edition drops every week.",landingUrl:"motivatewear.com",runningDays:45,isActive:true,isShopify:true,creativeType:"Video",countries:"US, AU",countryCount:2,impressions:"80K–120K",duplicateCount:5},
+    {pageName:"TeacherGiftShop",adText:"The perfect gift for your favorite teacher! Custom mugs, totes & t-shirts. Personalize today!",landingUrl:"teachergifts.myshopify.com",runningDays:28,isActive:true,isShopify:true,creativeType:"Carousel",countries:"US",countryCount:1,impressions:"40K–60K",duplicateCount:3},
+    {pageName:"NurseLifeStore",adText:"For nurses who love what they do. Exclusive nurse appreciation collection. Ships in 3 days.",landingUrl:"nurselife.com/shop",runningDays:18,isActive:true,isShopify:false,creativeType:"Image",countries:"US, CA",countryCount:2,impressions:"25K–40K",duplicateCount:2},
+    {pageName:"SilverMoonJewelry",adText:"Handcrafted silver necklaces & rings. Each piece tells a story. Free engraving on all orders!",landingUrl:"silvermoon.myshopify.com",runningDays:95,isActive:false,isShopify:true,creativeType:"Image",countries:"US, UK",countryCount:2,impressions:"200K–300K",duplicateCount:12},
+    {pageName:"QuranVersePrints",adText:"Beautiful Quran verse wall art for your home. Premium quality canvas prints. Worldwide shipping.",landingUrl:"quranprints.com",runningDays:60,isActive:true,isShopify:false,creativeType:"Image",countries:"US, UK, AU, CA",countryCount:4,impressions:"150K–200K",duplicateCount:15},
+    {pageName:"DigitalTemplatesPro",adText:"500+ Canva templates for social media. One-time purchase, lifetime access. Download instantly!",landingUrl:"digitaltemplates.gumroad.com",runningDays:12,isActive:true,isShopify:false,creativeType:"Video",countries:"US",countryCount:1,impressions:"15K–25K",duplicateCount:1},
+    {pageName:"CrystalDropShip",adText:"Healing crystals & gemstones delivered to your door. 100% authentic, ethically sourced.",landingUrl:"crystalstore.myshopify.com",runningDays:8,isActive:true,isShopify:true,creativeType:"Carousel",countries:"US, AU",countryCount:2,impressions:"8K–15K",duplicateCount:1},
+    {pageName:"MindfulMugs",adText:"Start your morning right with a motivational mug. Ceramic, dishwasher safe, ships in 2 days.",landingUrl:"mindfulmugs.myshopify.com",runningDays:35,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK",countryCount:2,impressions:"55K–80K",duplicateCount:4},
+    {pageName:"HijabFashionStore",adText:"Modern hijab styles for the contemporary Muslim woman. Breathable fabric, vibrant new colors!",landingUrl:"hijabfashion.com/new",runningDays:50,isActive:true,isShopify:false,creativeType:"Carousel",countries:"US, UK, CA, MY",countryCount:4,impressions:"90K–130K",duplicateCount:7},
+    {pageName:"SnackBoxMonthly",adText:"Discover new snacks every month! Curated international snack boxes. First box 50% off!",landingUrl:"snackboxmonthly.com/subscribe",runningDays:42,isActive:true,isShopify:false,creativeType:"Video",countries:"US, CA",countryCount:2,impressions:"70K–100K",duplicateCount:3},
+    {pageName:"DogMomStore",adText:"For the ultimate dog mom! Custom tees, mugs & accessories. Show your pup some love!",landingUrl:"dogmomstore.myshopify.com",runningDays:200,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK, AU, CA, DE",countryCount:5,impressions:"500K–1M",duplicateCount:35},
+  ];
+  ads = raw.map((d,i)=>{
+    const score = calcScore(d.runningDays, d.duplicateCount||1, d.countryCount||1);
+    const phase = detectPhase(d.runningDays, d.duplicateCount||1, d.countryCount||1, score);
+    const model = detectModel(d.adText+' '+d.pageName+' '+d.landingUrl);
+    return {id:`demo_${i}`, ...d, phase, model, score, confidence:Math.round(Math.min(score/150,1)*100), startDate:new Date(Date.now()-d.runningDays*864e5).toLocaleDateString('en-US')};
+  });
+  updateAll();
+  toast(`${ads.length} demo ads loaded!`,'ok');
 }
 
-function getEmoji(phase) {
-  var e = {HOT:'🔥',Legend:'👑','Cash Cow':'💰',Scaling:'🚀',Winning:'✅',Validating:'🔬',Testing:'🧪'};
-  return e[phase] || '📊';
+
+  async function loadFromDB(silent) {
+  if(!silent) setApiSt('connecting','Loading synced ads...');
+  try {
+    const url = `${window.location.origin}/api/ads/db?status=all&limit=200`;
+    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    const newAds = dedup(d.ads||[]);
+    ads = [...ads, ...newAds];
+    ads.sort((a,b)=>new Date(b.lastSeenAt||b.firstSeenAt||0)-new Date(a.lastSeenAt||a.firstSeenAt||0));
+    setApiSt('ok',`Connected · ${ads.length} ads`);
+    updateAll();
+    if(!silent) toast(`${d.ads.length} synced ads loaded!`,'ok');
+    else if(newAds.length) toast(`${newAds.length} new ad${newAds.length>1?'s':''} synced`,'ok');
+  } catch(e) {
+    if(!silent) { setApiSt('err','Error'); toast(e.message.slice(0,60),'err'); }
+  }
 }
 
-function getModelIcon(model) {
-  var m = {Dropship:'📦',POD:'🎁',Jewelry:'💎',Digital:'⚡',Amazon:'🛒','Sub Box':'📬'};
-  return m[model] || '📦';
+// ═══════════════════════════════════
+// RENDER
+// ═══════════════════════════════════
+function cardHTML(a, mode='normal', selectable=false) {
+  const pc = PHASE_COLORS[a.phase]||'#475569';
+  const typeIco = a.creativeType?.includes('Video')?'🎬':a.creativeType?.includes('Carousel')?'🎠':'';
+  const isFav = favs.has(a.id);
+  const isSel = selectedIds.has(a.id);
+  const imgH = mode==='large'?'ad-img lg':'ad-img';
+  const initial = (a.pageName||'?').trim().charAt(0).toUpperCase() || '?';
+  const gradColors = ['#3b82f6,#1e40af','#ec4899,#9d174d','#06b6d4,#0e7490','#f59e0b,#b45309','#8b5cf6,#5b21b6','#22c55e,#15803d','#f97316,#c2410c'];
+  const gradIdx = (initial.charCodeAt(0) || 0) % gradColors.length;
+const placeholder = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,${gradColors[gradIdx]});font-family:'Space Mono',monospace;font-size:34px;font-weight:700;color:rgba(255,255,255,.85)">${initial}${typeIco?`<span style="position:absolute;bottom:8px;right:8px;font-size:16px;opacity:.85">${typeIco}</span>`:''}</div>`;
+  const imgContent = a.thumbnailUrl ? `<img src="${a.thumbnailUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,${gradColors[gradIdx]});font-family:'Space Mono',monospace;font-size:34px;font-weight:700;color:rgba(255,255,255,.85)">${initial}</div>` : placeholder;
+  const selCheck = selectable ? `<div style="position:absolute;top:8px;left:8px;width:18px;height:18px;border-radius:4px;background:${isSel?'var(--acc)':'rgba(0,0,0,.5)'};border:1.5px solid ${isSel?'var(--acc)':'rgba(255,255,255,.3)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff" onclick="event.stopPropagation();toggleSelect('${a.id}')">${isSel?'✓':''}</div>` : '';
+  return `<div class="ad-card" onclick="${selectable?`toggleSelect('${a.id}')`:`openMod('${a.id}')`}">
+    <div class="${imgH}">${imgContent}
+      ${selectable ? selCheck : `<div class="phase-b" style="background:${pc}22;color:${pc};border:1px solid ${pc}44">${a.phase}</div>`}
+      <div class="model-b">${a.model}</div>
+      <div class="conf-b">${a.confidence||0}%</div>
+      <div class="score-line" style="width:${Math.min((a.score||0)/1.5,100)}%"></div>
+      ${a.snapshotUrl?`<div style="position:absolute;bottom:6px;left:6px;right:6px;text-align:center" onclick="event.stopPropagation();window.open('${a.snapshotUrl}','_blank')"><span style="background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:4px 8px;border-radius:6px;cursor:pointer">🔗 View Real Ad</span></div>`:''}
+    </div>
+    <div class="ad-body">
+      <div class="ad-page">📄 ${a.pageName}</div>
+      <div class="ad-txt">${a.adText||'No ad text'}</div>
+      <div class="ad-chips">
+        ${a.isActive?'<span class="chip act">● Active</span>':'<span class="chip inact">○ Inactive</span>'}
+        ${a.isShopify?'<span class="chip shp">Shopify</span>':''}
+        <span class="chip">${a.creativeType||'Image'}</span>
+      </div>
+      <div class="ad-foot">
+        <div class="ad-days">Running: <strong>${a.runningDays}d</strong> · ${a.startDate||'—'}</div>
+        <div class="ad-acts">
+          <div class="aact" title="Details" onclick="event.stopPropagation();openMod('${a.id}')">👁</div>
+          <div class="aact" title="${isFav?'Unfavorite':'Favorite'}" onclick="event.stopPropagation();toggleFav('${a.id}',this)">${isFav?'⭐':'☆'}</div>
+          ${a.landingUrl?`<div class="aact" title="Visit" onclick="event.stopPropagation();window.open('https://${a.landingUrl}','_blank')">🔗</div>`:''}
+          <div class="aact" title="Delete this ad" style="color:var(--hot)" onclick="event.stopPropagation();deleteOneAd('${a.id}')">🗑</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 
-function isShopifyUrl(url) {
-  if(!url) return false;
-  var u = url.toLowerCase();
-  return u.indexOf('myshopify.com')>=0 || u.indexOf('.com/products')>=0 || u.indexOf('.com/collections')>=0;
+function listCardHTML(a) {
+  const pc = PHASE_COLORS[a.phase]||'#475569';
+  return `<div class="ad-card list-card" onclick="openMod('${a.id}')">
+    <div class="ad-img" style="height:80px;width:180px">🖼️
+      <div class="phase-b" style="background:${pc}22;color:${pc};border:1px solid ${pc}44;font-size:8px">${a.phase}</div>
+    </div>
+    <div class="ad-body" style="padding:10px 14px">
+      <div class="ad-page">📄 ${a.pageName}</div>
+      <div class="ad-txt">${a.adText||'No ad text'}</div>
+      <div class="ad-chips">
+        ${a.isActive?'<span class="chip act">● Active</span>':'<span class="chip inact">○ Inactive</span>'}
+        <span class="chip">${a.model}</span>
+        <span class="chip">${a.creativeType||'Image'}</span>
+      </div>
+    </div>
+    <div class="ad-foot" style="flex-direction:column;gap:5px;padding:10px 12px;border-top:none;border-left:1px solid var(--b1);min-width:120px">
+      <div style="font-size:11px;color:var(--acc);font-family:'Space Mono',monospace;font-weight:700">${a.runningDays}d</div>
+      <div style="font-size:10px;color:var(--t3)">Score: ${a.score||0}</div>
+      <div style="font-size:10px;color:var(--t3)">${a.impressions||'N/A'}</div>
+    </div>
+  </div>`;
 }
 
-function isMultiVersion(text) {
-  return /multiple versions/i.test(text||'');
+function renderGrid(containerId, list, mode='normal', selectable=false) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">📭</div><h3>No ads found</h3><p>Load demo data or fetch from Meta.</p></div>`;
+    return;
+  }
+  el.className = `ads-grid${mode==='large'?' lg':''}${mode==='list'?' list':''}`;
+  el.innerHTML = list.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
 }
 
-function parseDays(text) {
-  var m = text.match(/Started running on ([A-Za-z]+ \d{1,2},?\s*\d{4})/);
-  if(m) {
+// ═══════════════════════════════════
+// UPDATE ALL
+// ═══════════════════════════════════
+function updateAll() {
+  // Stats
+  const active = ads.filter(a=>a.isActive).length;
+  const hot    = ads.filter(a=>a.phase==='HOT').length;
+  const pod    = ads.filter(a=>a.model==='POD').length;
+  const win    = ads.filter(a=>['HOT','Legend','Cash Cow','Scaling','Winning'].includes(a.phase)).length;
+
+  setTxt('d-total', ads.length);
+  setTxt('d-active', active);
+  setTxt('d-hot', hot);
+  setTxt('d-pod', pod);
+  setTxt('d-win', win);
+  setTxt('sb-total', ads.length);
+  setTxt('sb-ads', ads.length);
+  setTxt('sb-hot', hot);
+  setTxt('sb-fav', favs.size);
+  setTxt('bk-count', ads.length);
+  setTxt('bk-date', ads.length ? new Date().toLocaleString() : '—');
+
+  // Sidebar counts
+  document.getElementById('sb-total').textContent = ads.length;
+
+  // Phase bars
+  const phases = ['HOT','Legend','Cash Cow','Scaling','Winning','Validating','Testing'];
+  const pBars = phases.map(p => {
+    const cnt = ads.filter(a=>a.phase===p).length;
+    const pct = ads.length ? Math.round(cnt/ads.length*100) : 0;
+    const col = PHASE_COLORS[p]||'#475569';
+    return `<div class="bar-row"><span class="bar-label" style="font-size:10px">${p}</span><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="bar-val">${cnt}</span></div>`;
+  }).join('');
+  setHTML('phase-bars', pBars);
+
+  // Model bars
+  const models = ['POD','Dropship','Jewelry','Digital','Amazon','Sub Box'];
+  const mBars = models.map(m => {
+    const cnt = ads.filter(a=>a.model===m).length;
+    const pct = ads.length ? Math.round(cnt/ads.length*100) : 0;
+    const col = MODEL_COLORS[m]||'#475569';
+    return `<div class="bar-row"><span class="bar-label" style="font-size:10px">${m}</span><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="bar-val">${cnt}</span></div>`;
+  }).join('');
+  setHTML('model-bars', mBars);
+
+  // Hot picks counts
+  setTxt('hp-hot-cnt', `${hot} ads`);
+  setTxt('hp-win-cnt', `${ads.filter(a=>a.phase==='Winning').length} ads`);
+  setTxt('hp-sca-cnt', `${ads.filter(a=>a.phase==='Scaling').length} ads`);
+  setTxt('hp-cas-cnt', `${ads.filter(a=>a.phase==='Cash Cow').length} ads`);
+  setTxt('hp-leg-cnt', `${ads.filter(a=>a.phase==='Legend').length} ads`);
+
+  // Grids
+  renderGrid('dash-grid', ads.slice(0,8));
+  renderGrid('search-grid', ads.slice(0,12));
+  renderGrid('total-grid', getSortedFiltered());
+  renderGrid('hot-grid', ads.filter(a=>['HOT','Legend','Cash Cow','Scaling','Winning'].includes(a.phase)));
+  renderGrid('gv-grid', ads, gridMode);
+  renderGrid('lv-grid', ads, 'list');
+  renderGrid('archive-grid', ads.filter(a=>!a.isActive));
+  renderGrid('dupes-grid', ads.filter(a=>(a.duplicateCount||1)>1));
+  renderGrid('select-grid', ads, 'normal', true);
+
+  // Domain table
+  buildDomainTable();
+}
+
+function getSortedFiltered() {
+  let f = [...ads];
+  if(currentPhaseFilter !== 'all') f = f.filter(a=>a.phase===currentPhaseFilter);
+  if(currentQuickFilter === 'active') f = f.filter(a=>a.isActive);
+  if(currentQuickFilter === 'shopify') f = f.filter(a=>a.isShopify);
+  if(currentSort === 'score') f.sort((a,b)=>(b.score||0)-(a.score||0));
+  else if(currentSort === 'date') f.sort((a,b)=>new Date(b.lastSeenAt||b.firstSeenAt||0)-new Date(a.lastSeenAt||a.firstSeenAt||0));
+  else f.sort((a,b)=>(b.runningDays||0)-(a.runningDays||0));
+  return f;
+}
+
+function buildDomainTable() {
+  const domains = {};
+  ads.forEach(a => {
+   const d = (() => {
+  try { return new URL(a.landingUrl.startsWith('http') ? a.landingUrl : 'https://' + a.landingUrl).hostname.replace(/^www\./,''); }
+  catch { return a.landingUrl || 'unknown'; }
+})();
+    if(!domains[d]) domains[d] = {domain:d, count:0, phase:a.phase, model:a.model, active:0};
+    domains[d].count++;
+    if(a.isActive) domains[d].active++;
+  });
+  const rows = Object.values(domains).sort((a,b)=>b.count-a.count).slice(0,20);
+  const tbody = rows.map((d,i) => {
+    const pc = PHASE_COLORS[d.phase]||'#475569';
+    return `<tr><td>${i+1}</td><td><strong>${d.domain}</strong></td><td>${d.count}</td><td><span class="td-badge" style="background:${pc}22;color:${pc}">${d.phase}</span></td><td>${d.model}</td><td style="color:var(--win)">${d.active}</td></tr>`;
+  }).join('');
+  setHTML('domain-tbody', tbody || '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">No data</td></tr>');
+}
+
+// ═══════════════════════════════════
+// FILTERS & ACTIONS
+// ═══════════════════════════════════
+function filterAll(el) {
+  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  currentPhaseFilter = 'all';
+  currentQuickFilter = null;
+  renderGrid('total-grid', getSortedFiltered());
+}
+function filterPhase(el) {
+  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  currentPhaseFilter = el.dataset.f;
+  currentQuickFilter = null;
+  renderGrid('total-grid', getSortedFiltered());
+}
+function filterQuick(el, key) {
+  const wasOn = el.classList.contains('on');
+  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  if(!wasOn) { el.classList.add('on'); currentQuickFilter = key; currentPhaseFilter = 'all'; }
+  else { currentQuickFilter = null; document.querySelector('#page-totalads .fb-tag[data-f="all"]')?.classList.add('on'); }
+  renderGrid('total-grid', getSortedFiltered());
+}
+function filterHot(phase) {
+  const f = phase==='POD' ? ads.filter(a=>a.model==='POD') : ads.filter(a=>a.phase===phase);
+  document.getElementById('hp-grid-title').textContent = phase + ' Ads';
+  renderGrid('hot-grid', f);
+}
+function sortAds(by) { currentSort=by; renderGrid('total-grid', getSortedFiltered()); toast(`Sorted by ${by}`,'ok'); }
+function setGridMode(mode, btn) {
+  gridMode=mode;
+  document.querySelectorAll('#page-gridview .gc-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderGrid('gv-grid', ads, mode);
+}
+
+// Select
+function toggleSelect(id) {
+  if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+  document.getElementById('sel-count').textContent = `${selectedIds.size} selected`;
+  renderGrid('select-grid', ads, 'normal', true);
+}
+function selectAll() { ads.forEach(a=>selectedIds.add(a.id)); document.getElementById('sel-count').textContent=`${selectedIds.size} selected`; renderGrid('select-grid',ads,'normal',true); }
+function deselectAll() { selectedIds.clear(); document.getElementById('sel-count').textContent='0 selected'; renderGrid('select-grid',ads,'normal',true); }
+function exportSelected() { const sel=ads.filter(a=>selectedIds.has(a.id)); if(!sel.length){toast('Select some ads first!','err');return;} exportData(sel,'csv'); }
+async function deleteSelected() {
+  if(!selectedIds.size){toast('Select some ads first!','err');return;}
+  const idsArr = [...selectedIds];
+  const realIds = idsArr.filter(id => !String(id).startsWith('demo_'));
+  if(realIds.length) {
     try {
-      var d = new Date(m[1]);
-      if(!isNaN(d.getTime())) {
-        var days = Math.floor((Date.now() - d.getTime()) / 86400000);
-        if(days >= 0 && days < 3650) return days;
-      }
+      const r = await fetch('/api/ads/db', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
+        body: JSON.stringify({ ids: realIds })
+      });
+      if(!r.ok) throw new Error('Delete failed');
+    } catch(e) { toast('Server delete failed, removing locally','err'); }
+  }
+  ads=ads.filter(a=>!selectedIds.has(a.id));
+  selectedIds.clear();
+  updateAll();
+  toast('Deleted!','ok');
+}
+
+async function deleteOneAd(id) {
+  if(!confirm('Delete this ad?')) return;
+  if(!String(id).startsWith('demo_')) {
+    try {
+      const r = await fetch('/api/ads/db/' + encodeURIComponent(id), {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+      });
+      if(!r.ok) throw new Error('Delete failed');
+    } catch(e) { toast('Server delete failed, removing locally','err'); }
+  }
+  ads = ads.filter(a => a.id !== id);
+  favs.delete(id);
+  selectedIds.delete(id);
+  updateAll();
+  toast('Ad deleted','ok');
+}
+
+// Favorites
+function toggleFav(id, btn) {
+  if(favs.has(id)) { favs.delete(id); if(btn) btn.textContent='☆'; toast('Removed from favorites','ok'); }
+  else { favs.add(id); if(btn) btn.textContent='⭐'; toast('Added to favorites ⭐','ok'); }
+  setTxt('sb-fav', favs.size);
+  const favAds = ads.filter(a=>favs.has(a.id));
+  renderGrid('fav-grid', favAds);
+}
+
+// Global search
+function globalSearchFn() {
+  const q = document.getElementById('globalSearch').value.toLowerCase();
+  const filtered = !q ? ads : ads.filter(a=>(a.pageName+' '+a.adText+' '+a.landingUrl+' '+a.model+' '+a.phase).toLowerCase().includes(q));
+  renderGrid('dash-grid', filtered.slice(0,8));
+}
+
+// ═══════════════════════════════════
+// MODAL
+// ═══════════════════════════════════
+function openMod(id) {
+  const a = ads.find(x=>x.id===id); if(!a) return;
+  const pc = PHASE_COLORS[a.phase]||'#475569';
+  document.getElementById('modTitle').textContent = a.pageName;
+  const initial = (a.pageName||'?').trim().charAt(0).toUpperCase() || '?';
+  const gradColors = ['#3b82f6,#1e40af','#ec4899,#9d174d','#06b6d4,#0e7490','#f59e0b,#b45309','#8b5cf6,#5b21b6','#22c55e,#15803d','#f97316,#c2410c'];
+  const gradIdx = (initial.charCodeAt(0) || 0) % gradColors.length;
+  const preview = a.thumbnailUrl
+    ? `<img src="${a.thumbnailUrl}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="m-preview-ph" style="display:none;background:linear-gradient(135deg,${gradColors[gradIdx]})">${initial}</div>`
+    : `<div class="m-preview-ph" style="background:linear-gradient(135deg,${gradColors[gradIdx]})">${initial}</div>`;
+  const scoreW = Math.min((a.score||0)/1.5,100);
+  const confW = Math.min(a.confidence||0,100);
+  const rows = [
+    ['Model',a.model],['Start Date',a.startDate||'—'],
+    ['Creative',a.creativeType||'Image'],['Countries',a.countries||'N/A'],
+    ['Impressions',a.impressions||'N/A'],['Shopify',a.isShopify?'<span style="color:var(--win)">✓ Yes</span>':'<span style="color:var(--hot)">✕ No</span>'],
+    ['Duplicates',a.duplicateCount||1],
+    ['Landing Page',a.landingUrl?`<a href="https://${a.landingUrl}" target="_blank">${a.landingUrl}</a>`:'N/A'],
+  ];
+  const gridHTML = rows.map(([k,v])=>`<div class="m-cell"><div class="m-cell-key">${k}</div><div class="m-cell-val">${v}</div></div>`).join('');
+  const html = `
+    <div class="m-preview">${preview}${a.snapshotUrl?`<div class="m-preview-link" onclick="window.open('${a.snapshotUrl}','_blank')"><span style="background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:4px 8px;border-radius:6px;cursor:pointer">🔗 View Real Ad</span></div>`:''}</div>
+    <div class="m-hero">
+      <div class="m-hero-top">
+        <span style="background:${pc}22;color:${pc};border:1px solid ${pc}44;padding:3px 9px;border-radius:4px;font-size:10px;font-weight:700;font-family:'Space Mono',monospace">${a.phase}</span>
+        <span style="font-size:11px;font-weight:600;color:${a.isActive?'var(--win)':'var(--hot)'}">${a.isActive?'● Active':'○ Inactive'}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--t3);font-family:'Space Mono',monospace">${a.runningDays} days running</span>
+      </div>
+      <div class="m-stat-row">
+        <div class="m-stat">
+          <div class="m-stat-lbl">AI Score</div>
+          <div class="m-stat-val">${a.score||0}<span>/150</span></div>
+          <div class="m-bar"><div class="m-bar-fill" style="width:${scoreW}%;background:${pc}"></div></div>
+        </div>
+        <div class="m-stat">
+          <div class="m-stat-lbl">Confidence</div>
+          <div class="m-stat-val">${a.confidence||0}<span>%</span></div>
+          <div class="m-bar"><div class="m-bar-fill" style="width:${confW}%;background:var(--acc)"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="m-grid">${gridHTML}</div>
+    <div class="m-section">
+      <div class="m-section-title">Ad Text</div>
+      <div class="m-adtext">${a.adText||'N/A'}</div>
+    </div>
+    <div class="m-meta-row">
+      <span style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-family:'Space Mono',monospace">Meta ID</span>
+      <span style="font-family:'Space Mono',monospace;font-size:10px;color:var(--t3)">${a.id}</span>
+    </div>
+  `;
+  setHTML('modBody', html);
+  document.getElementById('modBg').classList.add('show');
+}
+function closeMod(e){if(e.target===document.getElementById('modBg'))document.getElementById('modBg').classList.remove('show');}
+
+// ═══════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════
+function exportCSV(){exportData(ads,'csv');}
+function exportJSON(){exportData(ads,'json');}
+function exportExcel(){exportData(ads,'csv');toast('Excel: CSV exported (open in Excel)','ok');}
+function exportData(data, fmt) {
+  if(!data.length){toast('No ads to export!','err');return;}
+  if(fmt==='json'){dl(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'adradar_export.json');}
+  else{
+    const h=['ID','Page','Phase','Model','Active','Start','Days','Score','Confidence','Type','URL','Shopify','Impressions','Countries','Text'];
+    const rows=data.map(a=>[a.id,a.pageName,a.phase,a.model,a.isActive,a.startDate,a.runningDays,a.score,a.confidence+'%',a.creativeType,a.landingUrl,a.isShopify,a.impressions,a.countries,`"${(a.adText||'').replace(/"/g,'""')}"`]);
+    dl(new Blob([[h.join(','),...rows.map(r=>r.join(','))].join('\n')],{type:'text/csv'}),'adradar_export.csv');
+  }
+  toast(`${fmt.toUpperCase()} exported!`,'ok');
+}
+function dl(blob,name){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
+
+async function clearAll(){
+  if(!confirm('Clear all ads?'))return;
+  const realIds = ads.filter(a=>!String(a.id).startsWith('demo_')).map(a=>a.id);
+  if(realIds.length) {
+    try {
+      await fetch('/api/ads/db', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
+        body: JSON.stringify({ ids: realIds })
+      });
     } catch(e) {}
   }
-  return -1;
-}
-
-function parseLandingUrl(card) {
-  try {
-    var links = card.querySelectorAll('a[href]');
-    for (var i = 0; i < links.length; i++) {
-      var href = links[i].getAttribute('href') || '';
-      if (href.indexOf('l.facebook.com') >= 0) {
-        var m = href.match(/u=([^&]+)/);
-        if (m) {
-          var decoded = decodeURIComponent(m[1]);
-          return decoded.replace(/^https?:\/\//, '').split('?')[0];
-        }
-      } else if (href && href.indexOf('facebook.com') < 0 && href.indexOf('fbcdn') < 0) {
-        return href.replace(/^https?:\/\//, '').split('?')[0];
-      }
-    }
-  } catch(e) {}
-  return '';
-}
-
-function parseThumbnail(card) {
-  try {
-    var imgs = card.querySelectorAll('img');
-    var best = null, bestArea = 0;
-    for (var i = 0; i < imgs.length; i++) {
-      var im = imgs[i];
-      var w = im.naturalWidth || im.width || 0;
-      var h = im.naturalHeight || im.height || 0;
-      var area = w * h;
-      if (area > bestArea) { bestArea = area; best = im; }
-    }
-    if (best && best.src && bestArea > 0) return best.src;
-    if (imgs.length && imgs[0].src) return imgs[0].src;
-    var video = card.querySelector('video');
-    if (video && video.poster) return video.poster;
-  } catch(e) {}
-  return '';
-}
-
-function parsePageName(card, fallbackText) {
-  try {
-    var candidates = card.querySelectorAll('span, strong, a');
-    for (var i = 0; i < candidates.length; i++) {
-      var t = (candidates[i].innerText || '').trim();
-      if (t.length >= 2 && t.length <= 60 &&
-          t.indexOf('Started running') < 0 &&
-          t.indexOf('Library ID') < 0 &&
-          !/^\d+$/.test(t)) {
-        return t;
-      }
-    }
-  } catch(e) {}
-  return (fallbackText || 'Unknown Page').slice(0, 60);
-}
-
-function makeBadge(phase, model, conf, days) {
-  var color = getColor(phase);
-  var emoji = getEmoji(phase);
-  var daysText = days >= 0 ? ' · ' + days + 'd' : '';
-  return '<div class="adspy-badge-v2" style="position:absolute;top:6px;left:6px;z-index:9999;background:rgba(8,10,18,0.95);border:1px solid ' + color + '55;border-radius:8px;padding:6px 9px;min-width:120px;font-family:Arial,sans-serif;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.6);transform-origin:top left;">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
-    '<span style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase;">' + emoji + ' ' + phase + '</span>' +
-    '<span style="font-size:9px;color:#64748b;margin-left:6px;">' + conf + '%</span>' +
-    '</div>' +
-    '<div style="font-size:9px;background:rgba(255,255,255,0.07);color:#94a3b8;padding:1px 6px;border-radius:3px;display:inline-block;">' + model + daysText + '</div>' +
-    '</div>';
+  ads=[];favs.clear();selectedIds.clear();updateAll();toast('Cleared!','ok');
 }
 
 // ═══════════════════════════════════
-// TOAST (top status popup)
+// NAVIGATION
 // ═══════════════════════════════════
-function showToast(title, subtitle, duration) {
-  var existing = document.getElementById('adspy-toast');
-  if(existing) existing.remove();
-  if(!document.getElementById('adspy-spin-style')) {
-    var st=document.createElement('style'); st.id='adspy-spin-style';
-    st.textContent='@keyframes adspy-spin{to{transform:rotate(360deg)}} .adspy-large-mode .adspy-badge-v2{transform:scale(1.35)}';
-    document.head.appendChild(st);
-  }
-  var t = document.createElement('div');
-  t.id='adspy-toast';
-  t.style.cssText='position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:2147483647;background:rgba(10,12,20,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px 30px;min-width:220px;text-align:center;font-family:Arial,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,0.7);';
-  t.innerHTML = '<div style="font-size:15px;font-weight:800;color:#fbbf24;margin-bottom:12px;">🔍 Ad<span style="color:#3b82f6">Radar</span></div>' +
-    '<div style="width:22px;height:22px;border:3px solid rgba(251,191,36,0.25);border-top-color:#fbbf24;border-radius:50%;margin:0 auto 12px;animation:adspy-spin 0.8s linear infinite;"></div>' +
-    '<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px;">'+title+'</div>' +
-    (subtitle?('<div style="font-size:11px;color:#94a3b8;">'+subtitle+'</div>'):'');
-  document.body.appendChild(t);
-  setTimeout(function(){ if(t.parentNode) t.remove(); }, duration||1400);
+const pageTitles = {dashboard:'Dashboard',search:'Search',totalads:'Total Ads',hotpicks:'Hot Picks',domain:'Domain',archive:'Archive',favorites:'Favorites',select:'Select',backup:'Backup',dupes:'Dupes',batches:'Batches',gridview:'Grid View',listview:'List View',profile:'Profile'};
+function nav(el) {
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('on'));
+  el.classList.add('on');
+  const page = el.dataset.page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.getElementById('page-'+page)?.classList.add('on');
+  document.getElementById('pageTitle').textContent = pageTitles[page]||page;
+  updateAll();
 }
 
 // ═══════════════════════════════════
-// TOOLBAR (persistent bottom bar)
+// UTILS
 // ═══════════════════════════════════
-var CAT_CHIPS = ['All','Testing','Validating','Winning','Scaling','Cash Cow','Shopify','Multi','HOT'];
-var MODEL_CHIPS = ['Dropship','POD','Jewelry','Digital','Amazon','Sub Box'];
-var btnRefs = {};
-var chipRefs = {};
-var modelChipRefs = {};
+function setApiSt(t,txt){const d=document.getElementById('api-dot');const l=document.getElementById('api-txt');d.style.background=t==='ok'?'var(--win)':t==='err'?'var(--hot)':'var(--cas)';l.textContent=txt;l.style.color=t==='ok'?'var(--win)':t==='err'?'var(--hot)':'var(--t3)';}
+function setTxt(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
+function setHTML(id,v){const el=document.getElementById(id);if(el)el.innerHTML=v;}
+let tT; function toast(msg,type){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+(type||'');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),3000);}
 
-function styleBtn(el, active, accent) {
-  accent = accent || '#3b82f6';
-  var isLight = (accent === '#ffffff');
-  el.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;user-select:none;border:1px solid ' + (active?accent+'aa':'rgba(255,255,255,0.1)') + ';background:' + (active?(isLight?'#fff':accent+'22'):'rgba(255,255,255,0.05)') + ';color:' + (active?(isLight?'#111':accent):'#cbd5e1') + ';white-space:nowrap;transition:all .15s;';
-}
-
-function styleChip(el, active, color) {
-  var isLight = (color === '#e2e8f0' || color === '#ffffff');
-  el.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:14px;font-size:10px;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap;border:1px solid ' + (active?color+'88':'rgba(255,255,255,0.08)') + ';background:' + (active?(isLight?'#e2e8f0':color+'22'):'rgba(255,255,255,0.04)') + ';color:' + (active?(isLight?'#111':color):'#94a3b8') + ';';
-}
-
-function makePanel() {
-  if(document.getElementById('adspy-panel-v2')) return;
-
-  var wrap = document.createElement('div');
-  wrap.id = 'adspy-panel-v2';
-  wrap.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;background:rgba(10,10,10,0.96);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:12px 16px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;margin:0 auto;';
-
-  // Row 1: toolbar
-  var row1 = document.createElement('div');
-  row1.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
-
-  var brand = document.createElement('div');
-  brand.style.cssText = 'font-size:13px;font-weight:800;color:#fff;margin-right:4px;white-space:nowrap;cursor:pointer;';
-  brand.innerHTML = '🔍 Ad<span style="color:#3b82f6">Radar</span> <span style="font-size:9px;color:#475569;font-weight:400;">v5.2.0</span>';
-  brand.title = 'Open Dashboard';
-  brand.addEventListener('click', function(){ window.open(API_BASE, '_blank'); });
-  row1.appendChild(brand);
-
-  var btnAccents = { scan:'#fbbf24', filter:'#22c55e', compete:'#ec4899', large:'#ffffff', gallery:'#fbbf24', live:'#06b6d4', auto:'#3b82f6' };
-
-  function addBtn(key, label, onClick) {
-    var b = document.createElement('div');
-    b.textContent = label;
-    styleBtn(b, false, btnAccents[key]);
-    b.addEventListener('click', onClick);
-    row1.appendChild(b);
-    btnRefs[key] = b;
-  }
-
-  addBtn('scan', '🔄 Scan', function(){ setScanning(!ADSPY_UI.scanning); });
-  addBtn('dashboard', '📊 Dashboard', function(){ window.open(API_BASE, '_blank'); });
-  addBtn('filter', '⚡ Filter', function(){ toggleFilterPanel(); });
-  addBtn('compete', '🎗 Compete', function(){ toggleCompete(); });
-  styleBtn(btnRefs.dashboard, true, '#3b82f6');
-
-  var starBox = document.createElement('div');
-  starBox.style.cssText = 'display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:7px;background:rgba(255,255,255,0.04);font-size:11px;font-weight:700;color:#fbbf24;white-space:nowrap;';
-  starBox.innerHTML = '⭐ <span id="ap2-total">0</span>';
-  row1.appendChild(starBox);
-
-  addBtn('help', '❓', function(){ showToast('Quick guide','Scan=on/off · Filter=chips · Compete=dupes · Auto=scroll', 2600); });
-  addBtn('large', '▦ Large', function(){ toggleLarge(); });
-  addBtn('export', '⬇ Export', function(){ exportCSVFromExtension(); });
-  addBtn('gallery', '🖼 Gallery', function(){ toggleGallery(); });
-  addBtn('live', '📡 Live', function(){ toggleLive(); });
-  addBtn('auto', '⚡ Auto', function(){ toggleAutoScroll(); });
-  addBtn('clear', '🗑 Clear', function(){ clearData(); });
-  styleBtn(btnRefs.clear, true, '#ef4444');
-
-  wrap.appendChild(row1);
-
-  // Row 2: category chips
-  var filterRows = document.createElement('div');
-  filterRows.id = 'adspy-filter-rows';
-  filterRows.style.cssText = 'display:' + (ADSPY_UI.filterOn?'flex':'none') + ';flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);';
-
-  var catRow = document.createElement('div');
-  catRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;';
-  CAT_CHIPS.forEach(function(cat){
-    var chip = document.createElement('div');
-    var color = getColor(cat);
-    chip.innerHTML = (cat==='HOT'?'🔥 ':'') + cat + ' <span style="opacity:.7" id="ap2-cat-' + cat.replace(/\s/g,'') + '">0</span>';
-    styleChip(chip, ADSPY_UI.category===cat, color);
-    chip.addEventListener('click', function(c){ return function(){ selectCategory(c); }; }(cat));
-    catRow.appendChild(chip);
-    chipRefs[cat] = chip;
-  });
-  filterRows.appendChild(catRow);
-
-  var modelRow = document.createElement('div');
-  modelRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;';
-  var modelLbl = document.createElement('span');
-  modelLbl.textContent = 'MODEL:';
-  modelLbl.style.cssText = 'font-size:9px;color:#475569;font-weight:700;letter-spacing:.05em;margin-right:2px;';
-  modelRow.appendChild(modelLbl);
-  MODEL_CHIPS.forEach(function(m){
-    var chip = document.createElement('div');
-    chip.innerHTML = getModelIcon(m) + ' ' + m + ' <span style="opacity:.7" id="ap2-model-' + m.replace(/\s/g,'') + '">0</span>';
-    styleChip(chip, ADSPY_UI.model===m, '#3b82f6');
-    chip.addEventListener('click', function(mm){ return function(){ selectModel(mm); }; }(m));
-    modelRow.appendChild(chip);
-    modelChipRefs[m] = chip;
-  });
-  filterRows.appendChild(modelRow);
-
-  wrap.appendChild(filterRows);
-  document.body.appendChild(wrap);
-  updateToolbarActiveStates();
-}
-
-function updateToolbarActiveStates() {
-  if(btnRefs.scan) { btnRefs.scan.textContent = ADSPY_UI.scanning ? '⏸ Scan' : '▶ Scan'; styleBtn(btnRefs.scan, ADSPY_UI.scanning, '#fbbf24'); }
-  if(btnRefs.filter) { btnRefs.filter.textContent = ADSPY_UI.filterOn ? '⚡ Filter ✓' : '⚡ Filter'; styleBtn(btnRefs.filter, ADSPY_UI.filterOn, '#22c55e'); }
-  if(btnRefs.compete) styleBtn(btnRefs.compete, ADSPY_UI.competeOn, '#ec4899');
-  if(btnRefs.large) styleBtn(btnRefs.large, ADSPY_UI.largeOn, '#ffffff');
-  if(btnRefs.gallery) styleBtn(btnRefs.gallery, ADSPY_UI.galleryOn, '#fbbf24');
-  if(btnRefs.live) styleBtn(btnRefs.live, ADSPY_UI.liveOn, '#06b6d4');
-  if(btnRefs.auto) styleBtn(btnRefs.auto, ADSPY_UI.autoScrollOn, '#3b82f6');
-  var rows = document.getElementById('adspy-filter-rows');
-  if(rows) rows.style.display = ADSPY_UI.filterOn ? 'flex' : 'none';
-}
-
-function renderChipStates() {
-  CAT_CHIPS.forEach(function(cat){
-    var chip = chipRefs[cat];
-    if(chip) styleChip(chip, ADSPY_UI.category===cat, getColor(cat));
-    var countEl = document.getElementById('ap2-cat-' + cat.replace(/\s/g,''));
-    if(countEl) {
-      if(cat==='All') countEl.textContent = ADSPY.total;
-      else if(cat==='Shopify') countEl.textContent = ADSPY.shopifyCount;
-      else if(cat==='Multi') countEl.textContent = ADSPY.multiCount;
-      else countEl.textContent = ADSPY.phaseCounts[cat] || 0;
-    }
-  });
-  MODEL_CHIPS.forEach(function(m){
-    var chip = modelChipRefs[m];
-    if(chip) styleChip(chip, ADSPY_UI.model===m, '#3b82f6');
-    var countEl = document.getElementById('ap2-model-' + m.replace(/\s/g,''));
-    if(countEl) countEl.textContent = ADSPY.modelCounts[m] || 0;
-  });
-}
-
-function updatePanel() {
-  var t = document.getElementById('ap2-total');
-  if(t) t.textContent = ADSPY.total;
-  renderChipStates();
-}
-
-// ═══════════════════════════════════
-// TOOLBAR ACTIONS
-// ═══════════════════════════════════
-function setScanning(on) {
-  ADSPY_UI.scanning = on;
-  if(on) {
-    if(!scanIntervalRef) scanIntervalRef = setInterval(scan, 4000);
-    if(!mutationObsRef) {
-      mutationObsRef = new MutationObserver(function(){ clearTimeout(scanTimeout); scanTimeout = setTimeout(scan, 800); });
-      mutationObsRef.observe(document.body, {childList:true, subtree:true});
-    }
-    showToast('Scanning resumed','Watching for new ads');
-  } else {
-    if(scanIntervalRef){ clearInterval(scanIntervalRef); scanIntervalRef=null; }
-    if(mutationObsRef){ mutationObsRef.disconnect(); mutationObsRef=null; }
-    showToast('Scan paused','Click Scan to resume');
-  }
-  updateToolbarActiveStates();
-}
-
-function toggleFilterPanel() {
-  ADSPY_UI.filterOn = !ADSPY_UI.filterOn;
-  if(!ADSPY_UI.filterOn) { ADSPY_UI.category='All'; ADSPY_UI.model=null; }
-  applyFilters();
-  updateToolbarActiveStates();
-  renderChipStates();
-}
-
-function toggleCompete() {
-  ADSPY_UI.competeOn = !ADSPY_UI.competeOn;
-  applyFilters();
-  updateToolbarActiveStates();
-  showToast(ADSPY_UI.competeOn?'Compete mode on':'Compete mode off', ADSPY_UI.competeOn?'Showing ads with duplicate versions':'');
-}
-
-function selectCategory(cat) {
-  ADSPY_UI.category = (ADSPY_UI.category===cat && cat!=='All') ? 'All' : cat;
-  ADSPY_UI.filterOn = true;
-  applyFilters();
-  updateToolbarActiveStates();
-  renderChipStates();
-}
-
-function selectModel(m) {
-  ADSPY_UI.model = (ADSPY_UI.model===m) ? null : m;
-  ADSPY_UI.filterOn = true;
-  applyFilters();
-  updateToolbarActiveStates();
-  renderChipStates();
-}
-
-function applyFilters() {
-  for(var i=0;i<processed.length;i++) {
-    var card = processed[i];
-    var show = true;
-    if(ADSPY_UI.filterOn && ADSPY_UI.category && ADSPY_UI.category !== 'All') {
-      if(ADSPY_UI.category === 'Shopify') show = card.dataset.shopify === '1';
-      else if(ADSPY_UI.category === 'Multi') show = card.dataset.multi === '1';
-      else show = card.dataset.phase === ADSPY_UI.category;
-    }
-    if(show && ADSPY_UI.filterOn && ADSPY_UI.model) show = card.dataset.model === ADSPY_UI.model;
-    if(show && ADSPY_UI.competeOn) show = card.dataset.multi === '1' || parseInt(card.dataset.dups||'1',10) >= 2;
-    card.style.display = show ? '' : 'none';
-  }
-}
-
-function toggleLarge() {
-  ADSPY_UI.largeOn = !ADSPY_UI.largeOn;
-  document.body.classList.toggle('adspy-large-mode', ADSPY_UI.largeOn);
-  updateToolbarActiveStates();
-  showToast(ADSPY_UI.largeOn ? 'Applying large creative...' : 'Reverting to normal size', ADSPY_UI.largeOn ? 'Laying out ad cards' : '', 1600);
-}
-
-function toggleGallery() {
-  ADSPY_UI.galleryOn = !ADSPY_UI.galleryOn;
-  for(var i=0;i<processed.length;i++) {
-    var card = processed[i];
-    if(ADSPY_UI.galleryOn) {
-      card.style.outline = '2px solid ' + getColor(card.dataset.phase);
-      card.style.outlineOffset = '2px';
-    } else {
-      card.style.outline = '';
-      card.style.outlineOffset = '';
-    }
-  }
-  updateToolbarActiveStates();
-  showToast(ADSPY_UI.galleryOn ? 'Gallery mode on' : 'Gallery mode off', ADSPY_UI.galleryOn ? 'Highlighting ads by phase color' : '', 1600);
-}
-
-function toggleLive() {
-  ADSPY_UI.liveOn = !ADSPY_UI.liveOn;
-  if(ADSPY_UI.liveOn) {
-    if(!syncIntervalRef) syncIntervalRef = setInterval(function(){ syncToServer(); }, 30000);
-    showToast('Live sync on','Auto-syncing to AdRadar every 30s');
-  } else {
-    if(syncIntervalRef){ clearInterval(syncIntervalRef); syncIntervalRef=null; }
-    showToast('Live sync off','Use Sync Now in the popup to sync manually');
-  }
-  updateToolbarActiveStates();
-}
-
-function toggleAutoScroll() {
-  ADSPY_UI.autoScrollOn = !ADSPY_UI.autoScrollOn;
-  if(ADSPY_UI.autoScrollOn) {
-    autoScrollIntervalRef = setInterval(function(){ window.scrollBy(0, 600); }, 1200);
-    showToast('Auto-scroll on','Loading more ads automatically');
-  } else {
-    if(autoScrollIntervalRef){ clearInterval(autoScrollIntervalRef); autoScrollIntervalRef=null; }
-    showToast('Auto-scroll off','');
-  }
-  updateToolbarActiveStates();
-}
-
-function clearData() {
-  chrome.storage.local.set({adsData:[], syncedIds:[]});
-  ADSPY = {
-    total:0, hot:0, winning:0, pod:0,
-    phaseCounts:{Testing:0,Validating:0,Winning:0,Scaling:0,'Cash Cow':0,HOT:0,Legend:0},
-    modelCounts:{Dropship:0,POD:0,Jewelry:0,Digital:0,Amazon:0,'Sub Box':0},
-    shopifyCount:0, multiCount:0
-  };
-  for(var i=0;i<processed.length;i++) {
-    var b = processed[i].querySelector('.adspy-badge-v2');
-    if(b) b.remove();
-    processed[i].style.display = '';
-    processed[i].style.outline = '';
-  }
-  processed = [];
-  ADSPY_UI.category = 'All'; ADSPY_UI.model = null; ADSPY_UI.competeOn = false;
-  updatePanel();
-  showToast('Data cleared','Scanned ads reset to zero');
-}
-
-function exportCSVFromExtension() {
-  chrome.storage.local.get('adsData', function(r) {
-    var data = r.adsData || [];
-    if(!data.length) { showToast('Nothing to export','Scan some ads first'); return; }
-    var header = ['Page','Phase','Model','Days','Score','Confidence','Shopify','Multi','Duplicates','Countries','LandingURL','AdText'];
-    var rows = data.map(function(a) {
-      return [
-        a.pageName||'', a.phase||'', a.model||'', a.days||0, a.score||0, a.confidence||0,
-        a.isShopify?'Yes':'No', a.isMulti?'Yes':'No', a.duplicates||1, a.countryCount||1,
-        a.landingUrl||'', '"' + (a.adText||'').replace(/"/g,'""') + '"'
-      ].join(',');
-    });
-    var csv = [header.join(','), ...rows].join('\n');
-    var blob = new Blob([csv], {type:'text/csv'});
-    var url = URL.createObjectURL(blob);
-    var link = document.createElement('a');
-    link.href = url;
-    link.download = 'adradar_extension_export.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-    showToast('Export ready','CSV downloading now');
-  });
-}
-
-// ═══════════════════════════════════
-// CARD PROCESSING
-// ═══════════════════════════════════
-function makeAdId(pageName, text, landingUrl) {
-  var raw = (pageName||'') + '|' + (text||'').slice(0,100) + '|' + (landingUrl||'');
-  var hash = 0;
-  for (var i = 0; i < raw.length; i++) {
-    hash = ((hash << 5) - hash + raw.charCodeAt(i)) | 0;
-  }
-  return 'ext_' + Math.abs(hash) + '_' + raw.length;
-}
-
-function processCard(card) {
-  if(processed.indexOf(card) >= 0) return;
-  processed.push(card);
-
-  var cs = window.getComputedStyle(card);
-  if(cs.position === 'static') card.style.position = 'relative';
-
-  var text = card.innerText || '';
-  var days = parseDays(text);
-  var actualDays = days >= 0 ? days : 0;
-
-  var dupMatch = text.match(/(\d+)\s+ads?\s+use\s+this/i);
-  var dups = dupMatch ? parseInt(dupMatch[1]) : 1;
-
-  var ctrMatch = text.match(/(\d+)\s+countr/i);
-  var countries = ctrMatch ? parseInt(ctrMatch[1]) : 1;
-
-  var score = calcScore(actualDays, dups, countries);
-  var phase = getPhase(actualDays, dups, countries, score);
-  var model = getModel(text);
-  var conf = Math.round(Math.min(score/150, 1)*100);
-
-  var landingUrl = parseLandingUrl(card);
-  var thumbnailUrl = parseThumbnail(card);
-  var pageName = parsePageName(card, text.split('\n')[0]);
-  var shopify = isShopifyUrl(landingUrl);
-  var multi = isMultiVersion(text) || dups >= 2;
-
-  card.dataset.phase = phase;
-  card.dataset.model = model;
-  card.dataset.shopify = shopify ? '1' : '0';
-  card.dataset.multi = multi ? '1' : '0';
-  card.dataset.dups = dups;
-
-  try {
-    card.insertAdjacentHTML('afterbegin', makeBadge(phase, model, conf, days));
-  } catch(e) {}
-
-  if(ADSPY_UI.galleryOn) { card.style.outline = '2px solid ' + getColor(phase); card.style.outlineOffset = '2px'; }
-
-  ADSPY.total++;
-  if(phase === 'HOT') ADSPY.hot++;
-  if(['HOT','Legend','Cash Cow','Scaling','Winning'].indexOf(phase) >= 0) ADSPY.winning++;
-  if(model === 'POD') ADSPY.pod++;
-  ADSPY.phaseCounts[phase] = (ADSPY.phaseCounts[phase]||0) + 1;
-  ADSPY.modelCounts[model] = (ADSPY.modelCounts[model]||0) + 1;
-  if(shopify) ADSPY.shopifyCount++;
-  if(multi) ADSPY.multiCount++;
-  updatePanel();
-
-  var adId = makeAdId(pageName, text, landingUrl);
-
-  try {
-    chrome.storage.local.get('adsData', function(r) {
-      var saved = r.adsData || [];
-      saved.push({
-        id: adId,
-        phase: phase,
-        model: model,
-        score: score,
-        confidence: conf,
-        days: actualDays,
-        runningDays: actualDays,
-        pageName: pageName,
-        landingUrl: landingUrl,
-        text: text.slice(0,150),
-        adText: text.slice(0,300),
-        pageUrl: window.location.href,
-        isActive: true,
-        thumbnailUrl: thumbnailUrl,
-        creativeType: 'Image',
-        countries: countries,
-        countryCount: countries,
-        isShopify: shopify,
-        isMulti: multi,
-        duplicates: dups,
-        platforms: 'facebook',
-        collectedAt: new Date().toISOString()
-      });
-      if(saved.length > 500) saved = saved.slice(-500);
-      chrome.storage.local.set({adsData: saved});
-    });
-  } catch(e) {}
-
-  applyFilters();
-}
-
-// ═══════════════════════════════════
-// SYNC TO SERVER
-// ═══════════════════════════════════
-function syncToServer(callback) {
-  chrome.storage.local.get(['adradar_token', 'adsData', 'syncedIds'], function(r) {
-    var token = r.adradar_token;
-    if (!token) { if (callback) callback(false); return; }
-
-    var allAds = r.adsData || [];
-    var syncedIds = r.syncedIds || [];
-    var syncedSet = {};
-    for (var i = 0; i < syncedIds.length; i++) syncedSet[syncedIds[i]] = true;
-
-    var pending = allAds.filter(function(a) { return a.id && !syncedSet[a.id]; });
-    if (!pending.length) { if (callback) callback(true); return; }
-
-    var batch = pending.slice(0, 50);
-
-    fetch(API_BASE + '/api/extension/sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
-      },
-      body: JSON.stringify({ ads: batch })
-    })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-      var newSyncedIds = syncedIds.concat(batch.map(function(a){ return a.id; }));
-      if (newSyncedIds.length > 2000) newSyncedIds = newSyncedIds.slice(-2000);
-      chrome.storage.local.set({
-        syncedIds: newSyncedIds,
-        lastSyncStatus: 'ok',
-        lastSyncTime: new Date().toISOString()
-      }, function() {
-        if (callback) callback(true);
-      });
-    })
-    .catch(function() {
-      chrome.storage.local.set({ lastSyncStatus: 'err' }, function() {
-        if (callback) callback(false);
-      });
-    });
-  });
-}
-
-try {
-  chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
-    if (msg && msg.type === 'ADRADAR_MANUAL_SYNC') {
-      syncToServer(function(ok) { sendResponse({ ok: ok }); });
-      return true;
-    }
-  });
-} catch(e) {}
-
-// ── SMART FINDER v5.1.8 - walks UP from the small date-div to find the real card ──
-function findCards() {
-  var allDivs = document.getElementsByTagName('div');
-  for(var i = 0; i < allDivs.length; i++) {
-    var el = allDivs[i];
-
-    var text = el.innerText || '';
-    if(text.indexOf('Started running on') < 0) continue;
-
-    var childDivs = el.getElementsByTagName('div');
-    var childHasDate = false;
-    for(var j = 0; j < childDivs.length; j++) {
-      if((childDivs[j].innerText||'').indexOf('Started running on') >= 0) {
-        childHasDate = true;
-        break;
-      }
-    }
-    if(childHasDate) continue;
-
-    var card = el;
-    var hops = 0;
-    while(card && hops < 10) {
-      if(card.offsetWidth >= 200 && card.offsetWidth <= 800 &&
-         card.offsetHeight >= 250 && card.offsetHeight <= 1400) {
-        break;
-      }
-      card = card.parentElement;
-      hops++;
-    }
-
-    if(!card) continue;
-    if(processed.indexOf(card) >= 0) continue;
-
-    processCard(card);
-  }
-}
-
-function scan() {
-  makePanel();
-  findCards();
-}
-
-setTimeout(scan, 1500);
-setTimeout(scan, 3000);
-setTimeout(scan, 5000);
-setTimeout(scan, 8000);
-setTimeout(function(){ setScanning(true); }, 1600);
-setTimeout(function(){ syncToServer(); }, 10000);
-syncIntervalRef = setInterval(function(){ syncToServer(); }, 30000);
+// Init
+updateAll();
+</script>
+</body>
+</html>
