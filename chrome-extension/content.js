@@ -1,4 +1,5 @@
-// AdRadar v5.2.0 - Full toolbar redesign: Scan/Filter/Compete/Large/Export/Gallery/Live/Auto + category & model chips
+// AdRadar v5.2.1 - Full toolbar redesign: Scan/Filter/Compete/Large/Export/Gallery/Live/Auto + category & model chips
+// FIX v5.2.1: use FB "Library ID" for unique ad IDs (prevents different ads from colliding into the same synced row)
 var API_BASE = 'https://adspy-pro-vc7w.onrender.com';
 
 var ADSPY = {
@@ -99,6 +100,16 @@ function parseLandingUrl(card) {
         return href.replace(/^https?:\/\//, '').split('?')[0];
       }
     }
+  } catch(e) {}
+  return '';
+}
+
+// ── NEW: pull the unique Facebook "Library ID" shown on every Ad Library card ──
+function parseLibraryId(card) {
+  try {
+    var text = card.innerText || '';
+    var m = text.match(/Library ID:\s*(\d+)/i);
+    if (m) return m[1];
   } catch(e) {}
   return '';
 }
@@ -206,7 +217,7 @@ function makePanel() {
 
   var brand = document.createElement('div');
   brand.style.cssText = 'font-size:13px;font-weight:800;color:#fff;margin-right:4px;white-space:nowrap;cursor:pointer;';
-  brand.innerHTML = '🔍 Ad<span style="color:#3b82f6">Radar</span> <span style="font-size:9px;color:#475569;font-weight:400;">v5.2.0</span>';
+  brand.innerHTML = '🔍 Ad<span style="color:#3b82f6">Radar</span> <span style="font-size:9px;color:#475569;font-weight:400;">v5.2.1</span>';
   brand.title = 'Open Dashboard';
   brand.addEventListener('click', function(){ window.open(API_BASE, '_blank'); });
   row1.appendChild(brand);
@@ -480,8 +491,11 @@ function exportCSVFromExtension() {
 // ═══════════════════════════════════
 // CARD PROCESSING
 // ═══════════════════════════════════
-function makeAdId(pageName, text, landingUrl) {
-  var raw = (pageName||'') + '|' + (text||'').slice(0,100) + '|' + (landingUrl||'');
+// FIX v5.2.1: prefer the unique Facebook "Library ID" when available so different
+// ads with similar opening text / missing landing URL don't collide into one ID.
+function makeAdId(pageName, text, landingUrl, libraryId) {
+  if (libraryId) return 'ext_lib_' + libraryId;
+  var raw = (pageName||'') + '|' + (text||'') + '|' + (landingUrl||'');
   var hash = 0;
   for (var i = 0; i < raw.length; i++) {
     hash = ((hash << 5) - hash + raw.charCodeAt(i)) | 0;
@@ -539,7 +553,8 @@ function processCard(card) {
   if(multi) ADSPY.multiCount++;
   updatePanel();
 
-  var adId = makeAdId(pageName, text, landingUrl);
+  var libraryId = parseLibraryId(card);
+  var adId = makeAdId(pageName, text, landingUrl, libraryId);
 
   try {
     chrome.storage.local.get('adsData', function(r) {
