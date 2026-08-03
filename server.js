@@ -595,18 +595,22 @@ autoArchiveStaleAds();
 setInterval(autoArchiveStaleAds, 24 * 60 * 60 * 1000);
 
 // ─── DASHBOARD: GET ADS FROM DATABASE (protected — requires login) ──────────
+// FIX: only return ads that actually have a thumbnail image, so ads without
+// a usable thumbnail don't clutter the dashboard grid.
 app.get('/api/ads/db', authMiddleware, async (req, res) => {
   try {
     const statusFilter = req.query.status || 'active'; // 'active' | 'archived' | 'all'
     const limit = parseInt(req.query.limit) || 200;
 
-    let whereClause = '';
+    let whereClauses = [];
     const params = [];
     if (statusFilter !== 'all') {
-      whereClause = 'WHERE status = $1';
       params.push(statusFilter);
+      whereClauses.push(`status = $${params.length}`);
     }
+    whereClauses.push(`thumbnail_url IS NOT NULL AND thumbnail_url != ''`);
     params.push(limit);
+    const whereClause = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
     const query = `
       SELECT * FROM ads
