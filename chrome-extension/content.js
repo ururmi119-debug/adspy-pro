@@ -134,15 +134,37 @@ function parseThumbnail(card) {
     var best = null, bestArea = 0;
     for (var i = 0; i < imgs.length; i++) {
       var im = imgs[i];
+      var src = im.currentSrc || im.src || '';
+
+      // Skip tiny/blurry base64 placeholders Facebook shows before the real image loads
+      if (!src || src.indexOf('data:image') === 0) continue;
+
+      // If a srcset is present, pull out the highest-resolution URL listed
+      var srcset = im.getAttribute('srcset');
+      if (srcset) {
+        var candidates = srcset.split(',').map(function(s){ return s.trim(); });
+        var bestCandidate = null, bestW = 0;
+        for (var c = 0; c < candidates.length; c++) {
+          var parts = candidates[c].split(/\s+/);
+          var url = parts[0];
+          var w = parseInt((parts[1]||'').replace('w',''), 10) || 0;
+          if (w > bestW) { bestW = w; bestCandidate = url; }
+        }
+        if (bestCandidate) src = bestCandidate;
+      }
+
       var w = im.naturalWidth || im.width || 0;
       var h = im.naturalHeight || im.height || 0;
       var area = w * h;
-      if (area > bestArea) { bestArea = area; best = im; }
+
+      // Prefer the largest actually-loaded image; if nothing loaded yet, still
+      // keep the first non-placeholder src as a fallback candidate
+      if (area > bestArea) { bestArea = area; best = src; }
+      else if (!best) { best = src; }
     }
-    if (best && best.src && bestArea > 0) return best.src;
-    if (imgs.length && imgs[0].src) return imgs[0].src;
+    if (best) return best;
     var video = card.querySelector('video');
-    if (video && video.poster) return video.poster;
+    if (video && video.poster && video.poster.indexOf('data:image') !== 0) return video.poster;
   } catch(e) {}
   return '';
 }
