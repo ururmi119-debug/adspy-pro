@@ -218,22 +218,91 @@ function styleChip(el, active, color) {
   el.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:14px;font-size:10px;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap;border:1px solid ' + (active?color+'88':'rgba(255,255,255,0.08)') + ';background:' + (active?(isLight?'#e2e8f0':color+'22'):'rgba(255,255,255,0.04)') + ';color:' + (active?(isLight?'#111':color):'#94a3b8') + ';';
 }
 
+// ═══════════════════════════════════
+// DRAGGABLE TOOLBAR — Step 2
+// ═══════════════════════════════════
+function clampPanelPosition(x, y, w, h) {
+  var maxX = window.innerWidth - w - 8;
+  var maxY = window.innerHeight - h - 8;
+  return { x: Math.min(Math.max(x, 8), Math.max(maxX, 8)), y: Math.min(Math.max(y, 8), Math.max(maxY, 8)) };
+}
+
+function makeDraggable(wrap, handle, onDragEnd) {
+  var dragging = false, startX = 0, startY = 0, origX = 0, origY = 0, moved = false;
+
+  function onDown(e) {
+    dragging = true;
+    moved = false;
+    var point = e.touches ? e.touches[0] : e;
+    startX = point.clientX;
+    startY = point.clientY;
+    var rect = wrap.getBoundingClientRect();
+    origX = rect.left;
+    origY = rect.top;
+    wrap.style.transform = 'none';
+    handle.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if(!dragging) return;
+    var point = e.touches ? e.touches[0] : e;
+    var dx = point.clientX - startX;
+    var dy = point.clientY - startY;
+    if(Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+    var rect = wrap.getBoundingClientRect();
+    var pos = clampPanelPosition(origX + dx, origY + dy, rect.width, rect.height);
+    wrap.style.left = pos.x + 'px';
+    wrap.style.top = pos.y + 'px';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
+  }
+
+  function onUp() {
+    if(!dragging) return;
+    dragging = false;
+    handle.style.cursor = 'grab';
+    if(moved) {
+      var rect = wrap.getBoundingClientRect();
+      try { chrome.storage.local.set({ adspyPanelPos: { x: rect.left, y: rect.top } }); } catch(e) {}
+      if(onDragEnd) onDragEnd(true);
+    } else {
+      if(onDragEnd) onDragEnd(false);
+    }
+  }
+
+  handle.addEventListener('mousedown', onDown);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  handle.addEventListener('touchstart', onDown, {passive:false});
+  document.addEventListener('touchmove', onMove, {passive:false});
+  document.addEventListener('touchend', onUp);
+
+  window.addEventListener('resize', function(){
+    var rect = wrap.getBoundingClientRect();
+    var pos = clampPanelPosition(rect.left, rect.top, rect.width, rect.height);
+    wrap.style.left = pos.x + 'px';
+    wrap.style.top = pos.y + 'px';
+  });
+
+  handle.style.cursor = 'grab';
+}
+
 function makePanel() {
   if(document.getElementById('adspy-panel-v2')) return;
 
   var wrap = document.createElement('div');
   wrap.id = 'adspy-panel-v2';
-  wrap.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;background:rgba(10,10,10,0.96);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:12px 16px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;margin:0 auto;';
+  wrap.style.cssText = 'position:fixed;z-index:2147483647;background:rgba(10,10,10,0.96);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:12px 16px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;width:calc(100% - 24px);';
 
   // Row 1: toolbar
   var row1 = document.createElement('div');
   row1.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
 
   var brand = document.createElement('div');
-  brand.style.cssText = 'font-size:13px;font-weight:800;color:#fff;margin-right:4px;white-space:nowrap;cursor:pointer;';
-  brand.innerHTML = '🔍 Ad<span style="color:#3b82f6">Radar</span> <span style="font-size:9px;color:#475569;font-weight:400;">v5.2.1</span>';
-  brand.title = 'Open Dashboard';
-  brand.addEventListener('click', function(){ window.open(API_BASE, '_blank'); });
+  brand.style.cssText = 'font-size:13px;font-weight:800;color:#fff;margin-right:4px;white-space:nowrap;cursor:grab;padding:2px 4px;';
+  brand.innerHTML = '⠿ 🔍 Ad<span style="color:#3b82f6">Radar</span> <span style="font-size:9px;color:#475569;font-weight:400;">v5.2.1</span>';
+  brand.title = 'Drag to move · Click to open Dashboard';
   row1.appendChild(brand);
 
   var btnAccents = { scan:'#fbbf24', filter:'#22c55e', compete:'#ec4899', large:'#ffffff', gallery:'#fbbf24', live:'#06b6d4', auto:'#3b82f6' };
@@ -303,8 +372,34 @@ function makePanel() {
   filterRows.appendChild(modelRow);
 
   wrap.appendChild(filterRows);
+
+  // Default start position: bottom-center (same look as before dragging existed)
+  wrap.style.left = '50%';
+  wrap.style.bottom = '12px';
+  wrap.style.transform = 'translateX(-50%)';
+
   document.body.appendChild(wrap);
   updateToolbarActiveStates();
+
+  makeDraggable(wrap, brand, function(wasDrag){
+    if(!wasDrag) window.open(API_BASE, '_blank');
+  });
+
+  // Restore last dragged position, if any
+  try {
+    chrome.storage.local.get('adspyPanelPos', function(r) {
+      var p = r.adspyPanelPos;
+      if(p && typeof p.x === 'number' && typeof p.y === 'number') {
+        var rect = wrap.getBoundingClientRect();
+        var pos = clampPanelPosition(p.x, p.y, rect.width, rect.height);
+        wrap.style.transform = 'none';
+        wrap.style.left = pos.x + 'px';
+        wrap.style.top = pos.y + 'px';
+        wrap.style.right = 'auto';
+        wrap.style.bottom = 'auto';
+      }
+    });
+  } catch(e) {}
 }
 
 function updateToolbarActiveStates() {
