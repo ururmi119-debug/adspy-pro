@@ -1,5 +1,6 @@
 // AdRadar v5.2.1 - Full toolbar redesign: Scan/Filter/Compete/Large/Export/Gallery/Live/Auto + category & model chips
 // FIX v5.2.1: use FB "Library ID" for unique ad IDs (prevents different ads from colliding into the same synced row)
+// UPDATE (Step 4): Content filtering — block 18+/adult ads, only show POD-relevant products
 var API_BASE = 'https://adspy-pro-vc7w.onrender.com';
 
 var ADSPY = {
@@ -11,6 +12,19 @@ var ADSPY = {
 var ADSPY_UI = { scanning:true, filterOn:true, competeOn:false, largeOn:false, galleryOn:false, liveOn:true, autoScrollOn:false, category:'All', model:null };
 var processed = [];
 var scanIntervalRef=null, mutationObsRef=null, autoScrollIntervalRef=null, syncIntervalRef=null, scanTimeout=null;
+
+// ═══════════════════════════════════
+// CONTENT FILTER — Step 4: block 18+/adult ads, only show POD-relevant
+// ═══════════════════════════════════
+var ADULT_KEYWORDS = ['18+','adult only','xxx','nsfw','nude','lingerie','onlyfans','erotic','porn','sex toy'];
+
+function isAdultContent(text) {
+  var t = (text||'').toLowerCase();
+  for (var i=0;i<ADULT_KEYWORDS.length;i++){
+    if (t.indexOf(ADULT_KEYWORDS[i]) >= 0) return true;
+  }
+  return false;
+}
 
 function calcScore(days, dups, countries) {
   var s = 0;
@@ -511,6 +525,13 @@ function processCard(card) {
   if(cs.position === 'static') card.style.position = 'relative';
 
   var text = card.innerText || '';
+
+  // Step 4: block adult / 18+ content — never save, never count, never show
+  if (isAdultContent(text)) {
+    card.style.display = 'none';
+    return;
+  }
+
   var days = parseDays(text);
   var actualDays = days >= 0 ? days : 0;
 
@@ -523,6 +544,13 @@ function processCard(card) {
   var score = calcScore(actualDays, dups, countries);
   var phase = getPhase(actualDays, dups, countries, score);
   var model = getModel(text);
+
+  // Step 4: only keep POD-relevant ads (T-shirt / mug / pillow / hoodie etc.)
+  if (model !== 'POD') {
+    card.style.display = 'none';
+    return;
+  }
+
   var conf = Math.round(Math.min(score/150, 1)*100);
 
   var landingUrl = parseLandingUrl(card);
