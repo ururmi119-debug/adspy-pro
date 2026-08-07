@@ -26,22 +26,41 @@ function isAdultContent(text) {
   return false;
 }
 
-function calcScore(days, dups, countries) {
-  var s = 0;
-  if(days>=181)s+=30;else if(days>=91)s+=25;else if(days>=31)s+=20;else if(days>=11)s+=15;else if(days>=4)s+=10;else s+=5;
-  if(dups>=30)s+=30;else if(dups>=11)s+=20;else if(dups>=4)s+=10;else if(dups>=2)s+=5;
-  if(countries>=15)s+=30;else if(countries>=6)s+=20;else if(countries>=2)s+=10;
-  if(days>=90)s+=30;else if(days>=60)s+=20;else if(days>=30)s+=10;
-  return s;
+// ═══════════════════════════════════
+// SCORING & CLASSIFICATION — Step 3 (100% real, page-parsed signals only)
+// ═══════════════════════════════════
+var POD_NICHE_KEYWORDS = ['print','custom','islamic','muslim','motivational','teacher','nurse','tshirt','hoodie','mug','poster','shirt','hijab','quran','mom','dad','dog','cat','faith','personalized','quote','gift','birthday','christmas','family','pet','sport','veteran','firefighter','police','military'];
+
+function calcNicheQuality(text) {
+  var t = (text||'').toLowerCase();
+  var hits = POD_NICHE_KEYWORDS.filter(function(k){ return t.indexOf(k) >= 0; }).length;
+  if(hits>=6) return 20;
+  if(hits>=4) return 15;
+  if(hits>=2) return 10;
+  if(hits>=1) return 5;
+  return 0;
 }
 
-function getPhase(days, dups, countries, score) {
-  if(days<=14 && dups>=10 && countries>=3) return 'HOT';
-  if(days>180 && score>150) return 'Legend';
-  if(days>90 && score>110) return 'Cash Cow';
-  if(score>=70 && (countries>3 || dups>5)) return 'Scaling';
-  if(score>=40 && days>=11) return 'Winning';
-  if(score>=20 && days<=10) return 'Validating';
+function calcScore(days, dups, countries, nicheScore) {
+  var s = 0;
+  // Ad Age — 35 pts (real: "Started running on" date)
+  if(days>=181)s+=35; else if(days>=91)s+=30; else if(days>=61)s+=25; else if(days>=31)s+=18; else if(days>=15)s+=12; else if(days>=8)s+=6; else s+=2;
+  // Creative Variations — 25 pts (real: "X ads use this creative and text")
+  if(dups>=30)s+=25; else if(dups>=15)s+=20; else if(dups>=8)s+=15; else if(dups>=4)s+=10; else if(dups>=2)s+=5;
+  // Countries Reach — 20 pts (real: "X countries")
+  if(countries>=15)s+=20; else if(countries>=6)s+=15; else if(countries>=3)s+=10; else if(countries>=2)s+=5;
+  // POD Niche Quality — 20 pts (real: keyword match strength in actual ad text)
+  s += (nicheScore||0);
+  return s; // max 100
+}
+
+function getPhase(score, days, dups, countries) {
+  if(days<=14 && dups>=8 && countries>=3) return 'HOT';
+  if(score>=91) return 'Legend';
+  if(score>=81) return 'Cash Cow';
+  if(score>=66) return 'Scaling';
+  if(score>=46) return 'Winning';
+  if(score>=31) return 'Validating';
   return 'Testing';
 }
 
@@ -658,8 +677,9 @@ function processCard(card) {
   var ctrMatch = text.match(/(\d+)\s+countr/i);
   var countries = ctrMatch ? parseInt(ctrMatch[1]) : 1;
 
-  var score = calcScore(actualDays, dups, countries);
-  var phase = getPhase(actualDays, dups, countries, score);
+  var nicheScore = calcNicheQuality(text);
+  var score = calcScore(actualDays, dups, countries, nicheScore);
+  var phase = getPhase(score, actualDays, dups, countries);
   var model = getModel(text);
 
   // Step 4: only keep POD-relevant ads (T-shirt / mug / pillow / hoodie etc.)
@@ -668,7 +688,7 @@ function processCard(card) {
     return;
   }
 
-  var conf = Math.round(Math.min(score/150, 1)*100);
+  var conf = Math.round(Math.min(score/100, 1)*100);
 
   var landingUrl = parseLandingUrl(card);
   var thumbnailUrl = parseThumbnail(card);
