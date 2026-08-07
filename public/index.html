@@ -598,24 +598,41 @@ const PHASE_COLORS = {HOT:'#ef4444',Legend:'#fbbf24','Cash Cow':'#f59e0b',Scalin
 const MODEL_COLORS = {POD:'#06b6d4',Dropship:'#f97316',Jewelry:'#ec4899',Digital:'#10b981',Amazon:'#f59e0b','Sub Box':'#ec4899'};
 
 // ═══════════════════════════════════
-// AI ENGINE
+// AI ENGINE — Step 3: 100% real-signal scoring (synced with content.js)
 // ═══════════════════════════════════
-function calcScore(days, dups, countries) {
-  let s = 0;
-  if(days>=181)s+=30;else if(days>=91)s+=25;else if(days>=31)s+=20;else if(days>=11)s+=15;else if(days>=4)s+=10;else s+=5;
-  if(dups>=30)s+=30;else if(dups>=11)s+=20;else if(dups>=4)s+=10;else if(dups>=2)s+=5;
-  if(countries>=15)s+=30;else if(countries>=6)s+=20;else if(countries>=2)s+=10;
-  if(days>=90)s+=30;else if(days>=60)s+=20;else if(days>=30)s+=10;
-  return s;
+const POD_NICHE_KEYWORDS = ['print','custom','islamic','muslim','motivational','teacher','nurse','tshirt','hoodie','mug','poster','shirt','hijab','quran','mom','dad','dog','cat','faith','personalized','quote','gift','birthday','christmas','family','pet','sport','veteran','firefighter','police','military'];
+
+function calcNicheQuality(text) {
+  const t = (text||'').toLowerCase();
+  const hits = POD_NICHE_KEYWORDS.filter(k => t.includes(k)).length;
+  if(hits>=6) return 20;
+  if(hits>=4) return 15;
+  if(hits>=2) return 10;
+  if(hits>=1) return 5;
+  return 0;
 }
-function detectPhase(days,dups,countries,score) {
-  if(days<=14&&dups>=10&&countries>=3)return'HOT';
-  if(days>180&&score>150)return'Legend';
-  if(days>90&&score>110)return'Cash Cow';
-  if(score>=70&&(countries>3||dups>5))return'Scaling';
-  if(score>=40&&days>=11)return'Winning';
-  if(score>=20&&days<=10)return'Validating';
-  return'Testing';
+
+function calcScore(days, dups, countries, nicheScore) {
+  let s = 0;
+  // Ad Age — 35 pts
+  if(days>=181)s+=35; else if(days>=91)s+=30; else if(days>=61)s+=25; else if(days>=31)s+=18; else if(days>=15)s+=12; else if(days>=8)s+=6; else s+=2;
+  // Creative Variations — 25 pts
+  if(dups>=30)s+=25; else if(dups>=15)s+=20; else if(dups>=8)s+=15; else if(dups>=4)s+=10; else if(dups>=2)s+=5;
+  // Countries Reach — 20 pts
+  if(countries>=15)s+=20; else if(countries>=6)s+=15; else if(countries>=3)s+=10; else if(countries>=2)s+=5;
+  // POD Niche Quality — 20 pts
+  s += (nicheScore||0);
+  return s; // max 100
+}
+
+function detectPhase(score, days, dups, countries) {
+  if(days<=14 && dups>=8 && countries>=3) return 'HOT';
+  if(score>=91) return 'Legend';
+  if(score>=81) return 'Cash Cow';
+  if(score>=66) return 'Scaling';
+  if(score>=46) return 'Winning';
+  if(score>=31) return 'Validating';
+  return 'Testing';
 }
 function detectModel(text) {
   const t=(text||'').toLowerCase();
@@ -672,10 +689,11 @@ function loadDemo() {
     {pageName:"DogMomStore",adText:"For the ultimate dog mom! Custom tees, mugs & accessories. Show your pup some love!",landingUrl:"dogmomstore.myshopify.com",runningDays:200,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK, AU, CA, DE",countryCount:5,impressions:"500K–1M",duplicateCount:35},
   ];
   ads = raw.map((d,i)=>{
-    const score = calcScore(d.runningDays, d.duplicateCount||1, d.countryCount||1);
-    const phase = detectPhase(d.runningDays, d.duplicateCount||1, d.countryCount||1, score);
+    const nicheScore = calcNicheQuality(d.adText+' '+d.pageName);
+    const score = calcScore(d.runningDays, d.duplicateCount||1, d.countryCount||1, nicheScore);
+    const phase = detectPhase(score, d.runningDays, d.duplicateCount||1, d.countryCount||1);
     const model = detectModel(d.adText+' '+d.pageName+' '+d.landingUrl);
-    return {id:`demo_${i}`, ...d, phase, model, score, confidence:Math.round(Math.min(score/150,1)*100), startDate:new Date(Date.now()-d.runningDays*864e5).toLocaleDateString('en-US')};
+    return {id:`demo_${i}`, ...d, phase, model, score, confidence:Math.round(Math.min(score/100,1)*100), startDate:new Date(Date.now()-d.runningDays*864e5).toLocaleDateString('en-US')};
   });
   updateAll();
   toast(`${ads.length} demo ads loaded!`,'ok');
@@ -720,7 +738,7 @@ const placeholder = `<div style="position:absolute;inset:0;display:flex;align-it
       ${selectable ? selCheck : `<div class="phase-b" style="background:${pc}22;color:${pc};border:1px solid ${pc}44">${a.phase}</div>`}
       <div class="model-b">${a.model}</div>
       <div class="conf-b">${a.confidence||0}%</div>
-      <div class="score-line" style="width:${Math.min((a.score||0)/1.5,100)}%"></div>
+      <div class="score-line" style="width:${Math.min((a.score||0),100)}%"></div>
       ${a.snapshotUrl?`<div style="position:absolute;bottom:6px;left:6px;right:6px;text-align:center" onclick="event.stopPropagation();window.open('${a.snapshotUrl}','_blank')"><span style="background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:4px 8px;border-radius:6px;cursor:pointer">🔗 View Real Ad</span></div>`:''}
     </div>
     <div class="ad-body">
@@ -987,7 +1005,7 @@ function openMod(id) {
   const preview = a.thumbnailUrl
     ? `<img src="${a.thumbnailUrl}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="m-preview-ph" style="display:none;background:linear-gradient(135deg,${gradColors[gradIdx]})">${initial}</div>`
     : `<div class="m-preview-ph" style="background:linear-gradient(135deg,${gradColors[gradIdx]})">${initial}</div>`;
-  const scoreW = Math.min((a.score||0)/1.5,100);
+  const scoreW = Math.min((a.score||0),100);
   const confW = Math.min(a.confidence||0,100);
   const rows = [
     ['Model',a.model],['Start Date',a.startDate||'—'],
@@ -1008,7 +1026,7 @@ function openMod(id) {
       <div class="m-stat-row">
         <div class="m-stat">
           <div class="m-stat-lbl">AI Score</div>
-          <div class="m-stat-val">${a.score||0}<span>/150</span></div>
+          <div class="m-stat-val">${a.score||0}<span>/100</span></div>
           <div class="m-bar"><div class="m-bar-fill" style="width:${scoreW}%;background:${pc}"></div></div>
         </div>
         <div class="m-stat">
