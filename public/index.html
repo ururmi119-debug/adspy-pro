@@ -322,6 +322,27 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
   <div class="sb-item" data-page="totalads" onclick="nav(this)"><span class="ico">📋</span>Total Ads<span class="sb-cnt" id="sb-ads">0</span></div>
   <div class="sb-item" data-page="hotpicks" onclick="nav(this)"><span class="ico">🔥</span>Hot Picks<span class="sb-cnt" id="sb-hot" style="background:rgba(239,68,68,.15);color:#ef4444">0</span></div>
 
+  <div class="sb-sec">Phase</div>
+  <div class="sb-item on" data-phase="all" onclick="sbFilterPhase('all',this)"><span class="ico">▤</span>All Phases<span class="sb-cnt" id="sbp-all">0</span></div>
+  <div class="sb-item" data-phase="HOT" onclick="sbFilterPhase('HOT',this)"><span class="ico">🔥</span>HOT<span class="sb-cnt" id="sbp-HOT">0</span></div>
+  <div class="sb-item" data-phase="Cash Cow" onclick="sbFilterPhase('Cash Cow',this)"><span class="ico">💰</span>Cash Cow<span class="sb-cnt" id="sbp-CashCow">0</span></div>
+  <div class="sb-item" data-phase="Scaling" onclick="sbFilterPhase('Scaling',this)"><span class="ico">🚀</span>Scaling<span class="sb-cnt" id="sbp-Scaling">0</span></div>
+  <div class="sb-item" data-phase="Winning" onclick="sbFilterPhase('Winning',this)"><span class="ico">✅</span>Winning<span class="sb-cnt" id="sbp-Winning">0</span></div>
+  <div class="sb-item" data-phase="Validating" onclick="sbFilterPhase('Validating',this)"><span class="ico">🔬</span>Validating<span class="sb-cnt" id="sbp-Validating">0</span></div>
+  <div class="sb-item" data-phase="Testing" onclick="sbFilterPhase('Testing',this)"><span class="ico">🧪</span>Testing<span class="sb-cnt" id="sbp-Testing">0</span></div>
+
+  <div class="sb-sec">Model</div>
+  <div class="sb-item on" data-model="all" onclick="sbFilterModel('all',this)"><span class="ico">▦</span>All Models<span class="sb-cnt" id="sbm-all">0</span></div>
+  <div class="sb-item" data-model="POD" onclick="sbFilterModel('POD',this)"><span class="ico">🎁</span>POD<span class="sb-cnt" id="sbm-POD">0</span></div>
+  <div class="sb-item" data-model="Dropship" onclick="sbFilterModel('Dropship',this)"><span class="ico">📦</span>Dropship<span class="sb-cnt" id="sbm-Dropship">0</span></div>
+  <div class="sb-item" data-model="Jewelry" onclick="sbFilterModel('Jewelry',this)"><span class="ico">💎</span>Jewelry<span class="sb-cnt" id="sbm-Jewelry">0</span></div>
+  <div class="sb-item" data-model="Digital" onclick="sbFilterModel('Digital',this)"><span class="ico">⚡</span>Digital<span class="sb-cnt" id="sbm-Digital">0</span></div>
+  <div class="sb-item" data-model="Amazon" onclick="sbFilterModel('Amazon',this)"><span class="ico">🛒</span>Amazon<span class="sb-cnt" id="sbm-Amazon">0</span></div>
+  <div class="sb-item" data-model="Sub Box" onclick="sbFilterModel('Sub Box',this)"><span class="ico">📬</span>Sub Box<span class="sb-cnt" id="sbm-SubBox">0</span></div>
+
+  <div class="sb-sec">Folders</div>
+  <div style="padding:6px 16px 14px;font-size:10px;color:var(--t3)">Coming soon</div>
+
   <div class="sb-sec">Tools</div>
   <div class="sb-item" data-page="domain" onclick="nav(this)"><span class="ico">🌐</span>Domain</div>
   <div class="sb-item" data-page="archive" onclick="nav(this)"><span class="ico">📦</span>Archive</div>
@@ -633,7 +654,7 @@ if (getAuthToken()) {
 // STATE
 // ═══════════════════════════════════
 let ads = [], favs = new Set(), selectedIds = new Set();
-let currentPhaseFilter = 'all', currentQuickFilter = null, currentSort = 'date';
+let currentPhaseFilter = 'all', currentQuickFilter = null, currentSort = 'date', currentModelFilter = 'all';
 let gridMode = 'normal';
 
 const PHASE_COLORS = {HOT:'#ef4444',Legend:'#fbbf24','Cash Cow':'#f59e0b',Scaling:'#3b82f6',Winning:'#22c55e',Validating:'#8b5cf6',Testing:'#475569'};
@@ -951,6 +972,24 @@ function updateAll() {
   renderGrid('dupes-grid', ads.filter(a=>(a.duplicateCount||1)>1));
   renderGrid('select-grid', ads, 'normal', true);
 
+  // Sidebar Phase counts (Step 6)
+  setTxt('sbp-all', ads.length);
+  setTxt('sbp-HOT', hot);
+  setTxt('sbp-CashCow', ads.filter(a=>a.phase==='Cash Cow').length);
+  setTxt('sbp-Scaling', ads.filter(a=>a.phase==='Scaling').length);
+  setTxt('sbp-Winning', ads.filter(a=>a.phase==='Winning').length);
+  setTxt('sbp-Validating', ads.filter(a=>a.phase==='Validating').length);
+  setTxt('sbp-Testing', ads.filter(a=>a.phase==='Testing').length);
+
+  // Sidebar Model counts (Step 6)
+  setTxt('sbm-all', ads.length);
+  setTxt('sbm-POD', pod);
+  setTxt('sbm-Dropship', ads.filter(a=>a.model==='Dropship').length);
+  setTxt('sbm-Jewelry', ads.filter(a=>a.model==='Jewelry').length);
+  setTxt('sbm-Digital', ads.filter(a=>a.model==='Digital').length);
+  setTxt('sbm-Amazon', ads.filter(a=>a.model==='Amazon').length);
+  setTxt('sbm-SubBox', ads.filter(a=>a.model==='Sub Box').length);
+
   // Domain table
   buildDomainTable();
 }
@@ -958,6 +997,7 @@ function updateAll() {
 function getSortedFiltered() {
   let f = [...ads];
   if(currentPhaseFilter !== 'all') f = f.filter(a=>a.phase===currentPhaseFilter);
+  if(currentModelFilter !== 'all') f = f.filter(a=>a.model===currentModelFilter);
   if(currentQuickFilter === 'active') f = f.filter(a=>a.isActive);
   if(currentQuickFilter === 'shopify') f = f.filter(a=>a.isShopify);
   if(currentSort === 'score') f.sort((a,b)=>(b.score||0)-(a.score||0));
@@ -993,6 +1033,7 @@ function filterAll(el) {
   currentPhaseFilter = 'all';
   currentQuickFilter = null;
   renderGrid('total-grid', getSortedFiltered());
+  syncSidebarPhaseState();
 }
 function filterPhase(el) {
   document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
@@ -1000,6 +1041,43 @@ function filterPhase(el) {
   currentPhaseFilter = el.dataset.f;
   currentQuickFilter = null;
   renderGrid('total-grid', getSortedFiltered());
+  syncSidebarPhaseState();
+}
+
+function sbFilterPhase(phase, el) {
+  currentPhaseFilter = phase;
+  currentQuickFilter = null;
+  navToPage('totalads');
+  document.querySelectorAll('.sb-item[data-phase]').forEach(i=>i.classList.remove('on'));
+  el.classList.add('on');
+  const barTag = phase==='all' ? document.querySelector('#page-totalads .fb-tag[data-f="all"]') : document.querySelector(`#page-totalads .fb-tag[data-f="${phase}"]`);
+  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  if(barTag) barTag.classList.add('on');
+  renderGrid('total-grid', getSortedFiltered());
+}
+
+function sbFilterModel(model, el) {
+  currentModelFilter = model;
+  navToPage('totalads');
+  document.querySelectorAll('.sb-item[data-model]').forEach(i=>i.classList.remove('on'));
+  el.classList.add('on');
+  renderGrid('total-grid', getSortedFiltered());
+}
+
+function syncSidebarPhaseState() {
+  document.querySelectorAll('.sb-item[data-phase]').forEach(i=>{
+    i.classList.toggle('on', i.dataset.phase === currentPhaseFilter);
+  });
+}
+
+function navToPage(page) {
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('on'));
+  const tab = document.querySelector(`.sb-item[data-page="${page}"]`);
+  if(tab) tab.classList.add('on');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  const pageEl = document.getElementById('page-'+page);
+  if(pageEl) pageEl.classList.add('on');
+  document.getElementById('pageTitle').textContent = pageTitles[page]||page;
 }
 function filterQuick(el, key) {
   const wasOn = el.classList.contains('on');
