@@ -717,7 +717,7 @@ function detectModel(text) {
     'Sub Box': keywordHits(text, ['subscribe','subscription','monthly box','box club'])
   };
   const best=Object.entries(s).sort((a,b)=>b[1]-a[1]);
-  return best[0][1]>0?best[0][0]:'POD';
+  return best[0][1]>0?best[0][0]:'Unknown';
 }
 
 // ═══════════════════════════════════
