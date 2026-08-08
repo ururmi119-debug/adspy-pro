@@ -32,13 +32,11 @@ function isAdultContent(text) {
 var POD_NICHE_KEYWORDS = ['print','custom','islamic','muslim','motivational','teacher','nurse','tshirt','hoodie','mug','poster','shirt','hijab','quran','mom','dad','dog','cat','faith','personalized','quote','gift','birthday','christmas','family','pet','sport','veteran','firefighter','police','military'];
 
 function calcNicheQuality(text) {
-  var t = (text||'').toLowerCase();
-  var hits = POD_NICHE_KEYWORDS.filter(function(k){ return t.indexOf(k) >= 0; }).length;
-  if(hits>=6) return 20;
-  if(hits>=4) return 15;
-  if(hits>=2) return 10;
-  if(hits>=1) return 5;
-  return 0;
+  return Math.min(keywordHits(text, POD_NICHE_KEYWORDS), 6) >= 6 ? 20
+    : keywordHits(text, POD_NICHE_KEYWORDS) >= 4 ? 15
+    : keywordHits(text, POD_NICHE_KEYWORDS) >= 2 ? 10
+    : keywordHits(text, POD_NICHE_KEYWORDS) >= 1 ? 5
+    : 0;
 }
 
 function calcScore(days, dups, countries, nicheScore) {
@@ -64,15 +62,26 @@ function getPhase(score, days, dups, countries) {
   return 'Testing';
 }
 
+function keywordHits(text, keywords) {
+  var t = (text||'').toLowerCase();
+  var count = 0;
+  for (var i = 0; i < keywords.length; i++) {
+    var kw = keywords[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var re = new RegExp('\\b' + kw + '\\b', 'i');
+    if (re.test(t)) count++;
+  }
+  return count;
+}
+
 function getModel(text) {
   var t = (text||'').toLowerCase();
   var scores = {
-    POD: ['print','custom','islamic','muslim','motivational','teacher','nurse','tshirt','hoodie','mug','poster','shirt','hijab','quran','mom','dad','dog','cat','faith','personalized','quote'].filter(function(k){return t.indexOf(k)>=0;}).length,
-    Dropship: ['free shipping','order now','buy now','ships from','limited stock'].filter(function(k){return t.indexOf(k)>=0;}).length * 2,
-    Jewelry: ['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond'].filter(function(k){return t.indexOf(k)>=0;}).length * 2,
-    Digital: ['download','ebook','course','digital','template','canva','preset'].filter(function(k){return t.indexOf(k)>=0;}).length * 2,
-    Amazon: ['amazon','prime','asin'].filter(function(k){return t.indexOf(k)>=0;}).length * 5,
-    'Sub Box': ['subscribe','subscription','monthly box','box club'].filter(function(k){return t.indexOf(k)>=0;}).length * 3
+    POD: keywordHits(t, ['print','custom','islamic','muslim','motivational','teacher','nurse','tshirt','hoodie','mug','poster','shirt','hijab','quran','mom','dad','dog','cat','faith','personalized','quote']),
+    Dropship: keywordHits(t, ['free shipping','order now','buy now','ships from','limited stock']) * 2,
+    Jewelry: keywordHits(t, ['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond']) * 2,
+    Digital: keywordHits(t, ['download','ebook','course','digital','template','canva','preset']) * 2,
+    Amazon: keywordHits(t, ['amazon','prime','asin']) * 5,
+    'Sub Box': keywordHits(t, ['subscribe','subscription','monthly box','box club']) * 3
   };
   var best = 'POD'; var bestScore = 0;
   for(var m in scores) { if(scores[m] > bestScore) { bestScore = scores[m]; best = m; } }
@@ -188,15 +197,19 @@ function parseThumbnail(card) {
   return '';
 }
 
+var SKIP_NAME_WORDS = ['active','inactive','sponsored','see ad details','see summary details','shop now','learn more','sign up','order now','see more','platforms'];
+
 function parsePageName(card, fallbackText) {
   try {
     var candidates = card.querySelectorAll('span, strong, a');
     for (var i = 0; i < candidates.length; i++) {
       var t = (candidates[i].innerText || '').trim();
+      var tLower = t.toLowerCase();
       if (t.length >= 2 && t.length <= 60 &&
           t.indexOf('Started running') < 0 &&
           t.indexOf('Library ID') < 0 &&
-          !/^\d+$/.test(t)) {
+          !/^\d+$/.test(t) &&
+          SKIP_NAME_WORDS.indexOf(tLower) < 0) {
         return t;
       }
     }
