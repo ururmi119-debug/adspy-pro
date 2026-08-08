@@ -666,8 +666,7 @@ const MODEL_COLORS = {POD:'#06b6d4',Dropship:'#f97316',Jewelry:'#ec4899',Digital
 const POD_NICHE_KEYWORDS = ['print','custom','islamic','muslim','motivational','teacher','nurse','tshirt','hoodie','mug','poster','shirt','hijab','quran','mom','dad','dog','cat','faith','personalized','quote','gift','birthday','christmas','family','pet','sport','veteran','firefighter','police','military'];
 
 function calcNicheQuality(text) {
-  const t = (text||'').toLowerCase();
-  const hits = POD_NICHE_KEYWORDS.filter(k => t.includes(k)).length;
+  const hits = keywordHits(text, POD_NICHE_KEYWORDS);
   if(hits>=6) return 20;
   if(hits>=4) return 15;
   if(hits>=2) return 10;
@@ -697,9 +696,26 @@ function detectPhase(score, days, dups, countries) {
   if(score>=31) return 'Validating';
   return 'Testing';
 }
+function keywordHits(text, keywords) {
+  const t = (text||'').toLowerCase();
+  let count = 0;
+  keywords.forEach(kw => {
+    const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('\\b' + esc + '\\b', 'i');
+    if(re.test(t)) count++;
+  });
+  return count;
+}
+
 function detectModel(text) {
-  const t=(text||'').toLowerCase();
-  const s={POD:['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','tshirt','hoodie','mug','poster','shirt','calligraphy','hijab','quran','mom','dad','dog','cat','faith'].filter(k=>t.includes(k)).length,Dropship:['free shipping','order now','limited stock','buy now','ships from','worldwide'].filter(k=>t.includes(k)).length,Jewelry:['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond','crystal'].filter(k=>t.includes(k)).length,Digital:['download','ebook','course','digital','template','preset','canva'].filter(k=>t.includes(k)).length,Amazon:['amazon','prime','asin'].filter(k=>t.includes(k)).length,'Sub Box':['subscribe','subscription','monthly box','box club'].filter(k=>t.includes(k)).length};
+  const s = {
+    POD: keywordHits(text, ['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','tshirt','hoodie','mug','poster','shirt','calligraphy','hijab','quran','mom','dad','dog','cat','faith']),
+    Dropship: keywordHits(text, ['free shipping','order now','limited stock','buy now','ships from','worldwide']),
+    Jewelry: keywordHits(text, ['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond','crystal']),
+    Digital: keywordHits(text, ['download','ebook','course','digital','template','preset','canva']),
+    Amazon: keywordHits(text, ['amazon','prime','asin']),
+    'Sub Box': keywordHits(text, ['subscribe','subscription','monthly box','box club'])
+  };
   const best=Object.entries(s).sort((a,b)=>b[1]-a[1]);
   return best[0][1]>0?best[0][0]:'POD';
 }
