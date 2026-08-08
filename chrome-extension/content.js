@@ -83,9 +83,9 @@ function getModel(text) {
     Amazon: keywordHits(t, ['amazon','prime','asin']) * 5,
     'Sub Box': keywordHits(t, ['subscribe','subscription','monthly box','box club']) * 3
   };
-  var best = 'POD'; var bestScore = 0;
+  var best = 'Unknown'; var bestScore = 0;
   for(var m in scores) { if(scores[m] > bestScore) { bestScore = scores[m]; best = m; } }
-  return best;
+  return best; // 'Unknown' means no product-category keyword matched at all — gets filtered out downstream
 }
 
 function getColor(phase) {
@@ -737,7 +737,7 @@ function processCard(card) {
   try {
     chrome.storage.local.get('adsData', function(r) {
       var saved = r.adsData || [];
-      saved.push({
+      var record = {
         id: adId,
         phase: phase,
         model: model,
@@ -760,7 +760,17 @@ function processCard(card) {
         duplicates: dups,
         platforms: 'facebook',
         collectedAt: new Date().toISOString()
-      });
+      };
+      // Step 9: don't store the same ad twice — update in place if it already exists
+      var existingIndex = -1;
+      for (var i = 0; i < saved.length; i++) {
+        if (saved[i].id === adId) { existingIndex = i; break; }
+      }
+      if (existingIndex >= 0) {
+        saved[existingIndex] = record;
+      } else {
+        saved.push(record);
+      }
       if(saved.length > 500) saved = saved.slice(-500);
       chrome.storage.local.set({adsData: saved});
     });
