@@ -460,6 +460,31 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
           <button class="gc-btn" onclick="exportCSV()">Export CSV</button>
         </div>
       </div>
+      <div class="filter-bar">
+        <span style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px">Niche:</span>
+        <div class="fb-tag on" data-niche="all" onclick="filterNiche(this)">All</div>
+        <div class="fb-tag" data-niche="Profession" onclick="filterNiche(this)">Profession</div>
+        <div class="fb-tag" data-niche="Pet" onclick="filterNiche(this)">Pet</div>
+        <div class="fb-tag" data-niche="Family" onclick="filterNiche(this)">Family</div>
+        <div class="fb-tag" data-niche="Sports" onclick="filterNiche(this)">Sports</div>
+        <div class="fb-tag" data-niche="Holiday" onclick="filterNiche(this)">Holiday</div>
+        <div class="fb-tag" data-niche="Funny" onclick="filterNiche(this)">Funny</div>
+        <div class="fb-tag" data-niche="Gift" onclick="filterNiche(this)">Gift</div>
+      </div>
+      <div class="filter-bar">
+        <span style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px">Age:</span>
+        <div class="fb-tag on" data-age="all" onclick="filterAge(this)">All</div>
+        <div class="fb-tag" data-age="new" onclick="filterAge(this)">New (&lt;15d)</div>
+        <div class="fb-tag" data-age="growing" onclick="filterAge(this)">Growing (15–45d)</div>
+        <div class="fb-tag" data-age="established" onclick="filterAge(this)">Established (45–90d)</div>
+        <div class="fb-tag" data-age="veteran" onclick="filterAge(this)">Veteran (90d+)</div>
+        <span style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:0 2px 0 10px">Creatives:</span>
+        <div class="fb-tag on" data-cr="all" onclick="filterCreatives(this)">All</div>
+        <div class="fb-tag" data-cr="1" onclick="filterCreatives(this)">1</div>
+        <div class="fb-tag" data-cr="2-3" onclick="filterCreatives(this)">2–3</div>
+        <div class="fb-tag" data-cr="4-5" onclick="filterCreatives(this)">4–5</div>
+        <div class="fb-tag" data-cr="6+" onclick="filterCreatives(this)">6+</div>
+      </div>
       <div class="ads-grid" id="total-grid"></div>
     </div>
 
@@ -655,6 +680,26 @@ if (getAuthToken()) {
 // ═══════════════════════════════════
 let ads = [], favs = new Set(), selectedIds = new Set();
 let currentPhaseFilter = 'all', currentQuickFilter = null, currentSort = 'date', currentModelFilter = 'all';
+let currentNicheFilter = 'all', currentAgeRangeFilter = 'all', currentCreativesFilter = 'all';
+
+const NICHE_KEYWORDS = {
+  Profession: ['teacher','nurse','firefighter','police','veteran','military','doctor','engineer','trucker','farmer'],
+  Pet: ['dog','cat','pet','puppy','kitten'],
+  Family: ['mom','dad','grandma','grandpa','family','sister','brother','daughter','son'],
+  Sports: ['football','basketball','baseball','soccer','golf','fishing','hunting','pickleball'],
+  Holiday: ['christmas','halloween','birthday','thanksgiving','valentine'],
+  Funny: ['funny','joke','sarcastic','humor'],
+  Gift: ['gift','present','anniversary']
+};
+
+function detectNicheType(text) {
+  let best = 'General', bestScore = 0;
+  for (const niche in NICHE_KEYWORDS) {
+    const hits = keywordHits(text, NICHE_KEYWORDS[niche]);
+    if (hits > bestScore) { bestScore = hits; best = niche; }
+  }
+  return best;
+}
 let gridMode = 'normal';
 
 const PHASE_COLORS = {HOT:'#ef4444',Legend:'#fbbf24','Cash Cow':'#f59e0b',Scaling:'#3b82f6',Winning:'#22c55e',Validating:'#8b5cf6',Testing:'#475569'};
@@ -689,11 +734,11 @@ function calcScore(days, dups, countries, nicheScore) {
 
 function detectPhase(score, days, dups, countries) {
   if(days<=14 && dups>=8 && countries>=3) return 'HOT';
-  if(score>=91) return 'Legend';
-  if(score>=81) return 'Cash Cow';
-  if(score>=66) return 'Scaling';
-  if(score>=46) return 'Winning';
-  if(score>=31) return 'Validating';
+  if(score>=86) return 'Legend';
+  if(score>=71) return 'Cash Cow';
+  if(score>=56) return 'Scaling';
+  if(score>=41) return 'Winning';
+  if(score>=26) return 'Validating';
   return 'Testing';
 }
 function keywordHits(text, keywords) {
@@ -876,6 +921,7 @@ const placeholder = `<div style="position:absolute;inset:0;display:flex;align-it
       <div class="ad-chips">
         ${a.isActive?'<span class="chip act">● Active</span>':'<span class="chip inact">○ Inactive</span>'}
         ${a.isShopify?'<span class="chip shp">Shopify</span>':''}
+        ${(a.duplicateCount||1)>=5?'<span class="chip" style="color:var(--hot);border-color:rgba(239,68,68,.3)">🔥 Competitor Validated</span>':''}
         <span class="chip">${a.creativeType||'Image'}</span>
       </div>
       <div class="ad-foot">
@@ -1016,6 +1062,27 @@ function getSortedFiltered() {
   if(currentModelFilter !== 'all') f = f.filter(a=>a.model===currentModelFilter);
   if(currentQuickFilter === 'active') f = f.filter(a=>a.isActive);
   if(currentQuickFilter === 'shopify') f = f.filter(a=>a.isShopify);
+  if(currentNicheFilter !== 'all') f = f.filter(a=>detectNicheType((a.adText||'')+' '+(a.pageName||''))===currentNicheFilter);
+  if(currentAgeRangeFilter !== 'all') {
+    f = f.filter(a=>{
+      const d = a.runningDays||0;
+      if(currentAgeRangeFilter==='new') return d<15;
+      if(currentAgeRangeFilter==='growing') return d>=15 && d<45;
+      if(currentAgeRangeFilter==='established') return d>=45 && d<90;
+      if(currentAgeRangeFilter==='veteran') return d>=90;
+      return true;
+    });
+  }
+  if(currentCreativesFilter !== 'all') {
+    f = f.filter(a=>{
+      const c = a.duplicateCount||1;
+      if(currentCreativesFilter==='1') return c===1;
+      if(currentCreativesFilter==='2-3') return c>=2 && c<=3;
+      if(currentCreativesFilter==='4-5') return c>=4 && c<=5;
+      if(currentCreativesFilter==='6+') return c>=6;
+      return true;
+    });
+  }
   if(currentSort === 'score') f.sort((a,b)=>(b.score||0)-(a.score||0));
   else f.sort((a,b)=>(b.runningDays||0)-(a.runningDays||0));
   return f;
@@ -1044,7 +1111,7 @@ function buildDomainTable() {
 // FILTERS & ACTIONS
 // ═══════════════════════════════════
 function filterAll(el) {
-  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('#page-totalads .fb-tag[data-f]').forEach(t=>t.classList.remove('on'));
   el.classList.add('on');
   currentPhaseFilter = 'all';
   currentQuickFilter = null;
@@ -1052,7 +1119,7 @@ function filterAll(el) {
   syncSidebarPhaseState();
 }
 function filterPhase(el) {
-  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('#page-totalads .fb-tag[data-f]').forEach(t=>t.classList.remove('on'));
   el.classList.add('on');
   currentPhaseFilter = el.dataset.f;
   currentQuickFilter = null;
@@ -1067,7 +1134,7 @@ function sbFilterPhase(phase, el) {
   document.querySelectorAll('.sb-item[data-phase]').forEach(i=>i.classList.remove('on'));
   el.classList.add('on');
   const barTag = phase==='all' ? document.querySelector('#page-totalads .fb-tag[data-f="all"]') : document.querySelector(`#page-totalads .fb-tag[data-f="${phase}"]`);
-  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('#page-totalads .fb-tag[data-f]').forEach(t=>t.classList.remove('on'));
   if(barTag) barTag.classList.add('on');
   renderGrid('total-grid', getSortedFiltered());
 }
@@ -1097,9 +1164,30 @@ function navToPage(page) {
 }
 function filterQuick(el, key) {
   const wasOn = el.classList.contains('on');
-  document.querySelectorAll('#page-totalads .fb-tag').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('#page-totalads .fb-tag[data-f], #page-totalads .fb-tag[data-f="active"], #page-totalads .fb-tag[data-f="shopify"]').forEach(t=>t.classList.remove('on'));
   if(!wasOn) { el.classList.add('on'); currentQuickFilter = key; currentPhaseFilter = 'all'; }
   else { currentQuickFilter = null; document.querySelector('#page-totalads .fb-tag[data-f="all"]')?.classList.add('on'); }
+  renderGrid('total-grid', getSortedFiltered());
+}
+
+function filterNiche(el) {
+  document.querySelectorAll('#page-totalads .fb-tag[data-niche]').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  currentNicheFilter = el.dataset.niche;
+  renderGrid('total-grid', getSortedFiltered());
+}
+
+function filterAge(el) {
+  document.querySelectorAll('#page-totalads .fb-tag[data-age]').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  currentAgeRangeFilter = el.dataset.age;
+  renderGrid('total-grid', getSortedFiltered());
+}
+
+function filterCreatives(el) {
+  document.querySelectorAll('#page-totalads .fb-tag[data-cr]').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  currentCreativesFilter = el.dataset.cr;
   renderGrid('total-grid', getSortedFiltered());
 }
 function filterHot(phase) {
@@ -1265,6 +1353,7 @@ function renderModalContent() {
             <span class="adv-badge" style="background:${pc}22;color:${pc};border-color:${pc}44">${a.phase}</span>
             <span class="adv-badge">${a.model} ✏️</span>
             <span class="adv-badge">${platformBadge}</span>
+            ${(a.duplicateCount||1)>=5?'<span class="adv-badge" style="color:var(--hot);border-color:rgba(239,68,68,.3)">🔥 Competitor Validated</span>':''}
           </div>
           <div class="adv-stats">
             <div class="adv-stat-cell"><div class="adv-stat-key">Score</div><div class="adv-stat-val">${a.score||0} / 100</div></div>
