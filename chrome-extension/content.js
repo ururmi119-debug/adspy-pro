@@ -54,11 +54,11 @@ function calcScore(days, dups, countries, nicheScore) {
 
 function getPhase(score, days, dups, countries) {
   if(days<=14 && dups>=8 && countries>=3) return 'HOT';
-  if(score>=91) return 'Legend';
-  if(score>=81) return 'Cash Cow';
-  if(score>=66) return 'Scaling';
-  if(score>=46) return 'Winning';
-  if(score>=31) return 'Validating';
+  if(score>=86) return 'Legend';
+  if(score>=71) return 'Cash Cow';
+  if(score>=56) return 'Scaling';
+  if(score>=41) return 'Winning';
+  if(score>=26) return 'Validating';
   return 'Testing';
 }
 
