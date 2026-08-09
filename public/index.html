@@ -795,27 +795,49 @@ async function fetchAds() {
 function dedup(n){const ex=new Set(ads.map(a=>a.id));const blocked=new Set(getBlockedIds());return n.filter(a=>!ex.has(a.id) && !blocked.has(a.id));}
 
 // ═══════════════════════════════════
-// TAGS & BLOCK (Step 1 — browser-local storage)
+// TAGS & BLOCK (Step: Tags now persist in Supabase via API)
 // ═══════════════════════════════════
 const SUGGESTED_TAGS = ['Firefighter','Police','Nurse','Military','Teacher','Veteran','Fishing','Hunting','Hiking','Gardening','Yoga','Gaming','Cooking','Football','Basketball','Baseball'];
 
-function loadTagsStore(){ try{ return JSON.parse(localStorage.getItem('adradar_tags')||'{}'); }catch(e){ return {}; } }
-function saveTagsStore(store){ localStorage.setItem('adradar_tags', JSON.stringify(store)); }
-function getTagsFor(id){ const store=loadTagsStore(); return store[id]||[]; }
-function addTagTo(id, tag){
+function getTagsFor(id) {
+  const a = ads.find(x=>x.id===id);
+  return (a && a.tags) ? a.tags : [];
+}
+
+async function addTagTo(id, tag) {
   tag = (tag||'').trim();
   if(!tag) return;
-  const store = loadTagsStore();
-  if(!store[id]) store[id]=[];
-  if(!store[id].includes(tag)) store[id].push(tag);
-  saveTagsStore(store);
+  const a = ads.find(x=>x.id===id);
+  if(!a) return;
+  const current = a.tags || [];
+  if(current.includes(tag)) return;
+  const updated = [...current, tag];
+  a.tags = updated; // optimistic UI update
   renderModalTags(id);
+  await saveTagsToServer(id, updated);
 }
-function removeTagFrom(id, tag){
-  const store = loadTagsStore();
-  if(store[id]) store[id] = store[id].filter(t=>t!==tag);
-  saveTagsStore(store);
+
+async function removeTagFrom(id, tag) {
+  const a = ads.find(x=>x.id===id);
+  if(!a) return;
+  const updated = (a.tags||[]).filter(t=>t!==tag);
+  a.tags = updated;
   renderModalTags(id);
+  await saveTagsToServer(id, updated);
+}
+
+async function saveTagsToServer(id, tags) {
+  if(String(id).startsWith('demo_')) return; // demo ads aren't in the DB
+  try {
+    const r = await fetch('/api/ads/' + encodeURIComponent(id) + '/tags', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
+      body: JSON.stringify({ tags })
+    });
+    if(!r.ok) throw new Error('Failed to save tags');
+  } catch(e) {
+    toast('Tag save failed — check connection','err');
+  }
 }
 
 function getBlockedIds(){ try{ return JSON.parse(localStorage.getItem('adradar_blocked')||'[]'); }catch(e){ return []; } }
