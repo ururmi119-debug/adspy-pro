@@ -746,6 +746,7 @@ function processCard(card) {
         days: actualDays,
         runningDays: actualDays,
         pageName: pageName,
+        title: pageName,
         landingUrl: landingUrl,
         text: text.slice(0,150),
         adText: text.slice(0,300),
