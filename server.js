@@ -26,10 +26,12 @@ if (GOOGLE_SERVICE_ACCOUNT_EMAIL && GOOGLE_PRIVATE_KEY && GOOGLE_SHEET_ID) {
 async function backupToGoogleSheets(ads) {
   if (!sheetsClient || !Array.isArray(ads) || ads.length === 0) return;
 
+  // FIX: extension-synced ads don't send a separate "title" field — fall back
+  // to pageName so the Sheets "title" column isn't left blank.
   const rows = ads.map(ad => [
     ad.id || '',
     ad.pageName || '',
-    ad.title || '',
+    ad.title || ad.pageName || '',
     ad.landingUrl || '',
     ad.phase || '',
     ad.score || 0,
@@ -115,8 +117,12 @@ const createAdsTableQuery = `
   CREATE INDEX IF NOT EXISTS idx_phase ON ads(phase);
 `;
 
+// Step: Tags — persist tags in Supabase instead of browser-only localStorage
+const addTagsColumnQuery = `ALTER TABLE ads ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb;`;
+
 pool.query(createAdsTableQuery)
-  .then(() => console.log('✅ ads table is ready'))
+  .then(() => pool.query(addTagsColumnQuery))
+  .then(() => console.log('✅ ads table is ready (tags column ensured)'))
   .catch(err => console.error('❌ Migration failed:', err.message));
 
 const transporter = nodemailer.createTransport({
@@ -504,6 +510,9 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'ads array is required and must not be empty' });
   }
 
+  // NOTE: "tags" is intentionally NOT in this INSERT/UPDATE list — that keeps
+  // any tags the user has already added untouched every time the extension
+  // re-syncs the same ad (ON CONFLICT only updates the columns listed below).
   const upsertQuery = `
     INSERT INTO ads (
       id, page_name, page_id, ad_text, title, landing_url, advertiser_domain,
@@ -535,12 +544,15 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
   for (const ad of ads) {
     try {
       const advertiserDomain = extractDomain(ad.landingUrl);
+      // FIX: extension ads don't send a separate "title" — fall back to pageName
+      // so the title column (and the Sheets backup) isn't left empty.
+      const titleValue = ad.title || ad.pageName || null;
       await pool.query(upsertQuery, [
         ad.id,
         ad.pageName || null,
         ad.pageId || null,
         ad.adText || null,
-        ad.title || null,
+        titleValue,
         ad.landingUrl || null,
         advertiserDomain,
         ad.thumbnailUrl || null,
@@ -566,7 +578,7 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
   }
 
 // Fire-and-forget backup to Google Sheets — doesn't block or fail the response
-    backupToGoogleSheets(ads).catch(() => {});
+    backupToGoogleSheets(ads.map(a => ({ ...a, title: a.title || a.pageName }))).catch(() => {});
 
     console.log(`✅ Sync complete: ${synced} synced, ${failed} failed. Sample ids: ${ads.slice(0,3).map(a=>a.id).join(', ')}`);
     res.json({ synced, failed, total: ads.length });
@@ -642,7 +654,8 @@ app.get('/api/ads/db', authMiddleware, async (req, res) => {
       startDate: r.first_seen_at ? new Date(r.first_seen_at).toLocaleDateString('en-US') : '—',
       firstSeenAt: r.first_seen_at,
       lastSeenAt: r.last_seen_at,
-      status: r.status
+      status: r.status,
+      tags: r.tags || []
     }));
 
     res.json({ ads, total: ads.length });
@@ -652,6 +665,34 @@ app.get('/api/ads/db', authMiddleware, async (req, res) => {
   }
 });
 
+// ─── TAGS: persist per-ad tags in Supabase (Step: Tags backend upgrade) ─────
+app.put('/api/ads/:id/tags', authMiddleware, async (req, res) => {
+  try {
+    const { tags } = req.body;
+    if (!Array.isArray(tags)) {
+      return res.status(400).json({ error: 'tags must be an array of strings' });
+    }
+    const cleanTags = tags
+      .filter(t => typeof t === 'string')
+      .map(t => t.trim())
+      .filter(Boolean)
+      .slice(0, 30); // sane upper bound
+
+    const result = await pool.query(
+      'UPDATE ads SET tags = $1 WHERE id = $2 RETURNING id, tags',
+      [JSON.stringify(cleanTags), req.params.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Ad not found' });
+    }
+
+    res.json({ id: result.rows[0].id, tags: result.rows[0].tags });
+  } catch (err) {
+    console.error('Tag update error:', err.message);
+    res.status(500).json({ error: 'Failed to update tags' });
+  }
+});
 
 app.delete('/api/ads/db', authMiddleware, async (req, res) => {
   try {
