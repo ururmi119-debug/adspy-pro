@@ -753,8 +753,10 @@ function keywordHits(text, keywords) {
 }
 
 function detectModel(text) {
+  const podStrongHits = keywordHits(text, ['tshirt','t-shirt','hoodie','mug','poster','shirt','pillow','hat','tumbler','sweatshirt','tank top','apparel','canvas','ornament','blanket','calligraphy']);
+  const podWeakHits = keywordHits(text, ['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','hijab','quran','mom','dad','dog','cat','faith']);
   const s = {
-    POD: keywordHits(text, ['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','tshirt','hoodie','mug','poster','shirt','calligraphy','hijab','quran','mom','dad','dog','cat','faith']),
+    POD: podStrongHits > 0 ? (podStrongHits * 3 + podWeakHits) : 0,
     Dropship: keywordHits(text, ['free shipping','order now','limited stock','buy now','ships from','worldwide']),
     Jewelry: keywordHits(text, ['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond','crystal']),
     Digital: keywordHits(text, ['download','ebook','course','digital','template','preset','canva']),
