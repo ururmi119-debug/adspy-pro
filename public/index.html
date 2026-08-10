@@ -752,7 +752,10 @@ function keywordHits(text, keywords) {
   return count;
 }
 
+const NON_POD_OVERRIDE_KEYWORDS = ['soap','lotion','cream','deodorant','skincare','serum','shampoo','conditioner','supplement','vitamin','capsule','tablet','probiotic','moisturizer','sunscreen','toothpaste','perfume','cologne'];
+
 function detectModel(text) {
+  if (keywordHits(text, NON_POD_OVERRIDE_KEYWORDS) > 0) return 'Unknown';
   const podStrongHits = keywordHits(text, ['tshirt','t-shirt','hoodie','mug','poster','shirt','pillow','hat','tumbler','sweatshirt','tank top','apparel','canvas','ornament','blanket','calligraphy']);
   const podWeakHits = keywordHits(text, ['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','hijab','quran','mom','dad','dog','cat','faith']);
   const s = {
