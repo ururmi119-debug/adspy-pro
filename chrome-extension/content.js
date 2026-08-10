@@ -75,8 +75,12 @@ function keywordHits(text, keywords) {
 
 function getModel(text) {
   var t = (text||'').toLowerCase();
+  var podStrongHits = keywordHits(t, ['tshirt','t-shirt','hoodie','mug','poster','shirt','pillow','hat','tumbler','sweatshirt','tank top','apparel','canvas','ornament','blanket']);
+  var podWeakHits = keywordHits(t, ['print','custom','islamic','muslim','motivational','teacher','nurse','hijab','quran','mom','dad','dog','cat','faith','personalized','quote']);
   var scores = {
-    POD: keywordHits(t, ['print','custom','islamic','muslim','motivational','teacher','nurse','tshirt','hoodie','mug','poster','shirt','hijab','quran','mom','dad','dog','cat','faith','personalized','quote']),
+    // POD only counts if there's at least one real product-noun hit — generic
+    // context words (mom/dad/faith/quote) alone can't qualify unrelated products.
+    POD: podStrongHits > 0 ? (podStrongHits * 3 + podWeakHits) : 0,
     Dropship: keywordHits(t, ['free shipping','order now','buy now','ships from','limited stock']) * 2,
     Jewelry: keywordHits(t, ['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond']) * 2,
     Digital: keywordHits(t, ['download','ebook','course','digital','template','canva','preset']) * 2,
@@ -85,7 +89,7 @@ function getModel(text) {
   };
   var best = 'Unknown'; var bestScore = 0;
   for(var m in scores) { if(scores[m] > bestScore) { bestScore = scores[m]; best = m; } }
-  return best; // 'Unknown' means no product-category keyword matched at all — gets filtered out downstream
+  return best; // 'Unknown' means no strong product-category signal — gets filtered out downstream
 }
 
 function getColor(phase) {
@@ -204,7 +208,7 @@ function parsePageName(card, fallbackText) {
     var candidates = card.querySelectorAll('span, strong, a');
     for (var i = 0; i < candidates.length; i++) {
       var t = (candidates[i].innerText || '').trim();
-      var tLower = t.toLowerCase();
+      var tLower = t.toLowerCase().replace(/^[^a-z0-9]+/, '').trim();
       if (t.length >= 2 && t.length <= 60 &&
           t.indexOf('Started running') < 0 &&
           t.indexOf('Library ID') < 0 &&
