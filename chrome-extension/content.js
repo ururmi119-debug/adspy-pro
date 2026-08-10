@@ -73,8 +73,11 @@ function keywordHits(text, keywords) {
   return count;
 }
 
+var NON_POD_OVERRIDE_KEYWORDS = ['soap','lotion','cream','deodorant','skincare','serum','shampoo','conditioner','supplement','vitamin','capsule','tablet','probiotic','moisturizer','sunscreen','toothpaste','perfume','cologne'];
+
 function getModel(text) {
   var t = (text||'').toLowerCase();
+  if (keywordHits(t, NON_POD_OVERRIDE_KEYWORDS) > 0) return 'Unknown';
   var podStrongHits = keywordHits(t, ['tshirt','t-shirt','hoodie','mug','poster','shirt','pillow','hat','tumbler','sweatshirt','tank top','apparel','canvas','ornament','blanket']);
   var podWeakHits = keywordHits(t, ['print','custom','islamic','muslim','motivational','teacher','nurse','hijab','quran','mom','dad','dog','cat','faith','personalized','quote']);
   var scores = {
@@ -209,11 +212,13 @@ function isSkippableNameText(t) {
 }
 
 function parsePageName(card, fallbackText) {
+  // Most reliable: page name is the line directly above "Sponsored" in the card's text
+  var sponsoredMatch = getPageNameAboveSponsored(fallbackText);
+  if (sponsoredMatch) return sponsoredMatch;
+
   try {
     var candidates = card.querySelectorAll('span, strong, a, div');
     for (var i = 0; i < candidates.length; i++) {
-      // Skip container elements that themselves have element children —
-      // we only want "leaf" text nodes, not big wrapper divs.
       if (candidates[i].children && candidates[i].children.length > 0) continue;
       var t = (candidates[i].innerText || '').trim();
       if (t.length >= 2 && t.length <= 60 &&
@@ -228,11 +233,39 @@ function parsePageName(card, fallbackText) {
   return getFallbackPageName(fallbackText) || (fallbackText || 'Unknown Page').slice(0, 60);
 }
 
+function getPageNameAboveSponsored(text) {
+  try {
+    var lines = (text||'').split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
+    for (var i = 1; i < lines.length; i++) {
+      if (/^sponsored$/i.test(lines[i])) {
+        var candidate = lines[i-1];
+        if (candidate && candidate.length >= 2 && candidate.length <= 60 && !isSkippableNameText(candidate) && !/^\d+$/.test(candidate)) {
+          return candidate;
+        }
+      }
+    }
+  } catch(e) {}
+  return '';
+}
+
 function getFallbackPageName(text) {
   try {
     var lines = (text||'').split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
-    for (var i = 0; i < lines.length; i++) {
-      var l = lines[i];
+
+    // Most reliable heuristic: on Meta Ad Library cards, the page/advertiser
+    // name is the line directly above the "Sponsored" label.
+    for (var i = 1; i < lines.length; i++) {
+      if (/^sponsored$/i.test(lines[i])) {
+        var candidate = lines[i-1];
+        if (candidate && candidate.length >= 2 && candidate.length <= 60 && !isSkippableNameText(candidate) && !/^\d+$/.test(candidate)) {
+          return candidate;
+        }
+      }
+    }
+
+    // Fallback: first line that isn't boilerplate/status text
+    for (var j = 0; j < lines.length; j++) {
+      var l = lines[j];
       if (l.length >= 2 && l.length <= 60 &&
           l.indexOf('Started running') < 0 &&
           l.indexOf('Library ID') < 0 &&
