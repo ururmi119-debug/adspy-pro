@@ -779,12 +779,19 @@ function calcScore(days, dups, countries, nicheScore) {
 }
 
 function detectPhase(score, days, dups, countries) {
-  if(days<=14 && dups>=8 && countries>=3) return 'HOT';
-  if(score>=86) return 'Legend';
-  if(score>=71) return 'Cash Cow';
-  if(score>=56) return 'Scaling';
-  if(score>=41) return 'Winning';
-  if(score>=26) return 'Validating';
+  // HOT — special viral case
+  if(days <= 14 && dups >= 8 && countries >= 3) {
+    return 'HOT';
+  }
+  
+  // Regular phases — calibrated for 20-40 range
+  if(score >= 38) return 'Legend';
+  if(score >= 32) return 'Cash Cow';
+  if(score >= 26) return 'Scaling';
+  if(score >= 20) return 'Winning';
+  if(score >= 14) return 'Validating';
+  if(score >= 8)  return 'Testing';
+  
   return 'Testing';
 }
 function keywordHits(text, keywords) {
