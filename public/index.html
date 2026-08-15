@@ -1377,6 +1377,9 @@ async function deleteOneAd(id) {
 // ═══════════════════════════════════
 // FAVORITES (ENHANCED)
 // ═══════════════════════════════════
+  // FAVORITES PERSISTENCE — SUPABASE
+const SUPABASE_URL = 'https://gvlhseeeqwyynkltad.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_qY3vxxBmiWCIFWt-GeRg_q_ImyS...';
 function toggleFav(id, btn) {
   if(favs.has(id)) { favs.delete(id); if(btn) btn.textContent='☆'; toast('Removed from favorites','ok'); }
   else { favs.add(id); if(btn) btn.textContent='⭐'; toast('Added to favorites ⭐','ok'); }
