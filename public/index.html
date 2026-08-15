@@ -1503,6 +1503,7 @@ function renderModalContent() {
           ${a.landingUrl?`<button class="adv-btn prim" onclick="window.open('https://${a.landingUrl}','_blank')">Product Page<span class="adv-counter">${modalIndex+1} / ${modalList.length}</span></button>`:`<button class="adv-btn" disabled>No Page<span class="adv-counter">${modalIndex+1} / ${modalList.length}</span></button>`}
           <button class="adv-btn" onclick="showAllAdsForPage('${(a.pageName||'').replace(/'/g,"\\'")}')">All Ads</button>
           <button class="adv-btn" onclick="event.stopPropagation();toggleFav('${a.id}',null);toast('${isFav?'Removed':'Added'} to favorites')" style="color:var(--win)">⭐ ${isFav?'Unfavorite':'Favorite'}</button>
+          <button class="adv-btn" onclick="openDesignRecipeModal('${a.id}')">📋 View Recipe</button>
           <button class="adv-btn block" onclick="blockAd('${a.id}')">Block</button>
           <button class="adv-btn danger" onclick="document.getElementById('modBg').classList.remove('show');deleteOneAd('${a.id}')">Delete</button>
           <button class="adv-btn" onclick="document.getElementById('modBg').classList.remove('show')">Close</button>
@@ -1597,6 +1598,205 @@ updateAll();
   const favAds = ads.filter(a => favs.has(a.id));
   renderGrid('fav-grid', favAds);
   renderGrid('total-grid', getSortedFiltered());
+}
+  // ═══════════════════════════════════════════════════════════════════════════
+// DESIGN RECIPE CARD SYSTEM — View + Copy (6 options)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class DesignRecipe {
+  constructor(adId, adName) {
+    this.id = `recipe_${adId}_${Date.now()}`;
+    this.adId = adId;
+    this.adName = adName;
+    this.fonts = {
+      primary: { name: 'Roboto', weight: 'bold', size: '48px' },
+      secondary: { name: 'Open Sans', weight: 'regular', size: '24px' }
+    };
+    this.colors = {
+      primary: '#FFD700',
+      secondary: '#000000',
+      accent: '#FFFFFF'
+    };
+    this.elements = ['text', 'logo', 'cta_button', 'price_tag'];
+    this.layout = 'image_left_text_right';
+    this.createdBy = 'Plabon';
+    this.createdDate = new Date().toISOString().split('T')[0];
+  }
+  
+  toFormattedText() {
+    return `
+DESIGN RECIPE
+═══════════════════════════════════════════════
+
+AD NAME: ${this.adName}
+
+📝 FONTS:
+  Primary: ${this.fonts.primary.name} ${this.fonts.primary.weight} ${this.fonts.primary.size}
+  Secondary: ${this.fonts.secondary.name} ${this.fonts.secondary.weight} ${this.fonts.secondary.size}
+
+🎨 COLORS:
+  Primary: ${this.colors.primary}
+  Secondary: ${this.colors.secondary}
+  Accent: ${this.colors.accent}
+
+📐 ELEMENTS:
+  ${this.elements.map(e => '• ' + e.toUpperCase()).join('\n  ')}
+
+📍 LAYOUT:
+  ${this.layout.toUpperCase().replace(/_/g, ' ')}
+
+👤 CREATED BY: ${this.createdBy}
+📅 DATE: ${this.createdDate}
+
+═══════════════════════════════════════════════
+    `.trim();
+  }
+  
+  toCSV() {
+    return `recipe_name,font_primary,font_primary_weight,font_size,font_secondary,font_secondary_weight,secondary_size,color_primary,color_secondary,color_accent,elements,layout,created_by,created_date
+${this.adName},"${this.fonts.primary.name}","${this.fonts.primary.weight}","${this.fonts.primary.size}","${this.fonts.secondary.name}","${this.fonts.secondary.weight}","${this.fonts.secondary.size}","${this.colors.primary}","${this.colors.secondary}","${this.colors.accent}","${this.elements.join('|')}","${this.layout}","${this.createdBy}","${this.createdDate}"`;
+  }
+}
+
+function openDesignRecipeModal(adId) {
+  const ad = ads.find(a => a.id === adId);
+  if (!ad) return;
+  
+  const recipe = new DesignRecipe(adId, ad.pageName || 'Design Recipe');
+  window.currentRecipe = recipe;
+  
+  const modalHTML = `
+    <div style="padding:20px">
+      <div style="margin-bottom:14px">
+        <h3 style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:12px">📋 Design Recipe</h3>
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px;font-size:11px;color:var(--t2);line-height:1.7;font-family:'Space Mono',monospace;max-height:300px;overflow-y:auto;margin-bottom:12px">
+          ${recipe.toFormattedText().replace(/\n/g, '<br>')}
+        </div>
+      </div>
+      
+      <div style="margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">📤 COPY OPTIONS</div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <button class="tb-btn prim" onclick="copyRecipeToClipboard()" style="padding:8px;font-size:11px">📋 Copy</button>
+          <button class="tb-btn prim" onclick="copyRecipeAsText()" style="padding:8px;font-size:11px">📝 Text</button>
+          <button class="tb-btn" onclick="downloadRecipeTXT()" style="padding:8px;font-size:11px">💾 TXT</button>
+          <button class="tb-btn" onclick="downloadRecipeCSV()" style="padding:8px;font-size:11px">📊 CSV</button>
+          <button class="tb-btn" onclick="generateShareLink()" style="padding:8px;font-size:11px">🔗 Link</button>
+          <button class="tb-btn" onclick="emailRecipeToSelf()" style="padding:8px;font-size:11px">📧 Email</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('modBody').innerHTML = modalHTML;
+  document.getElementById('modTitle').textContent = 'Design Recipe';
+  document.getElementById('modBg').classList.add('show');
+}
+
+async function copyRecipeToClipboard() {
+  const recipe = window.currentRecipe;
+  if (!recipe) return;
+  
+  try {
+    await navigator.clipboard.writeText(recipe.toFormattedText());
+    toast('✅ Copied to clipboard!', 'ok');
+  } catch(e) {
+    toast('❌ Copy failed', 'err');
+  }
+}
+
+async function copyRecipeAsText() {
+  const recipe = window.currentRecipe;
+  if (!recipe) return;
+  
+  const text = recipe.toFormattedText();
+  
+  const el = document.getElementById('modBody');
+  el.innerHTML = `
+    <div style="padding:20px">
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px;font-family:'Space Mono',monospace;font-size:11px;color:var(--tx);line-height:1.7;max-height:400px;overflow-y:auto;margin-bottom:12px;white-space:pre-wrap;word-break:break-word">
+        ${text}
+      </div>
+      <button class="tb-btn prim" onclick="copyRecipeToClipboard()" style="width:100%;padding:10px">📋 Copy Above</button>
+    </div>
+  `;
+}
+
+function downloadRecipeTXT() {
+  const recipe = window.currentRecipe;
+  if (!recipe) return;
+  
+  const text = recipe.toFormattedText();
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${recipe.adName.replace(/\s+/g, '_')}_recipe.txt`;
+  a.click();
+  
+  URL.revokeObjectURL(url);
+  toast('✅ TXT downloaded', 'ok');
+}
+
+function downloadRecipeCSV() {
+  const recipe = window.currentRecipe;
+  if (!recipe) return;
+  
+  const csv = recipe.toCSV();
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${recipe.adName.replace(/\s+/g, '_')}_recipe.csv`;
+  a.click();
+  
+  URL.revokeObjectURL(url);
+  toast('✅ CSV downloaded', 'ok');
+}
+
+function generateShareLink() {
+  const recipe = window.currentRecipe;
+  if (!recipe) return;
+  
+  const recipeId = recipe.id;
+  localStorage.setItem(`recipe_${recipeId}`, JSON.stringify(recipe));
+  
+  const link = `${window.location.origin}?recipe=${recipeId}`;
+  
+  navigator.clipboard.writeText(link);
+  toast(`✅ Share link copied!`, 'ok');
+}
+
+async function emailRecipeToSelf() {
+  const recipe = window.currentRecipe;
+  if (!recipe) return;
+  
+  const userEmail = prompt('Enter your email:');
+  if (!userEmail) return;
+  
+  try {
+    const response = await fetch('/api/email/send-recipe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + getAuthToken()
+      },
+      body: JSON.stringify({
+        to: userEmail,
+        subject: `Design Recipe: ${recipe.adName}`,
+        content: recipe.toFormattedText()
+      })
+    });
+    
+    if (!response.ok) throw new Error('Email failed');
+    
+    toast(`✅ Email sent to ${userEmail}`, 'ok');
+  } catch(e) {
+    toast('❌ Email failed', 'err');
+  }
 }
 </script>
 </body>
