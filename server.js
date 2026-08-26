@@ -722,6 +722,79 @@ app.delete('/api/ads/db/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// ─── FAVORITES ENDPOINTS (SUPABASE/POSTGRES) ────────────────────
+app.get('/api/favorites', authMiddleware, async (req, res) => {
+  try {
+    const token = req.headers['authorization'].split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.user;
+
+    const result = await pool.query(
+      'SELECT ad_id FROM user_favorites WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
+    
+    const favoriteIds = result.rows.map(row => row.ad_id);
+    res.json({ favorites: favoriteIds, count: favoriteIds.length });
+  } catch (err) {
+    console.error('Get favorites error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch favorites' });
+  }
+});
+
+app.post('/api/favorites/toggle/:adId', authMiddleware, async (req, res) => {
+  try {
+    const token = req.headers['authorization'].split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.user;
+    const adId = req.params.adId;
+
+    // Check if already favorite
+    const check = await pool.query(
+      'SELECT id FROM user_favorites WHERE user_id = $1 AND ad_id = $2',
+      [userId, adId]
+    );
+
+    if (check.rows.length > 0) {
+      // Remove from favorites
+      await pool.query(
+        'DELETE FROM user_favorites WHERE user_id = $1 AND ad_id = $2',
+        [userId, adId]
+      );
+      res.json({ action: 'removed', adId, message: 'Removed from favorites' });
+    } else {
+      // Add to favorites
+      await pool.query(
+        'INSERT INTO user_favorites (user_id, ad_id) VALUES ($1, $2)',
+        [userId, adId]
+      );
+      res.json({ action: 'added', adId, message: 'Added to favorites' });
+    }
+  } catch (err) {
+    console.error('Toggle favorite error:', err.message);
+    res.status(500).json({ error: 'Failed to toggle favorite' });
+  }
+});
+
+app.delete('/api/favorites/:adId', authMiddleware, async (req, res) => {
+  try {
+    const token = req.headers['authorization'].split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.user;
+    const adId = req.params.adId;
+
+    const result = await pool.query(
+      'DELETE FROM user_favorites WHERE user_id = $1 AND ad_id = $2',
+      [userId, adId]
+    );
+
+    res.json({ deleted: result.rowCount > 0, adId });
+  } catch (err) {
+    console.error('Delete favorite error:', err.message);
+    res.status(500).json({ error: 'Failed to delete favorite' });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', version: '5.1.7', engine: 'Advanced AI v2', time: new Date().toISOString() });
 });
