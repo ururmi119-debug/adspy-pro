@@ -1375,11 +1375,8 @@ async function deleteOneAd(id) {
 }
 
 // ═══════════════════════════════════
-// FAVORITES (ENHANCED)
+// FAVORITES (API-BASED PERSISTENCE)
 // ═══════════════════════════════════
-  // FAVORITES PERSISTENCE — SUPABASE
-const SUPABASE_URL = 'https://gvlhseeeqwyynkltad.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_qY3vxxBmiWCIFWt-GeRg_q_ImyS...';
 async function toggleFav(id, btn) {
   try {
     const token = localStorage.getItem('token');
@@ -1420,6 +1417,8 @@ async function toggleFav(id, btn) {
     console.error('Favorite error:', err);
     toast('Failed to save favorite: ' + err.message, 'error');
   }
+}
+
 function globalSearchFn() {
   const q = document.getElementById('globalSearch').value.toLowerCase();
   const filtered = !q ? ads : ads.filter(a=>(a.pageName+' '+a.adText+' '+a.landingUrl+' '+a.model+' '+a.phase).toLowerCase().includes(q));
@@ -1834,7 +1833,7 @@ async function emailRecipeToSelf() {
     toast('❌ Email failed', 'err');
   }
 }
-  
+
 // ─── LOAD FAVORITES FROM API ON PAGE LOAD ────────────────────────
 async function loadFavoritesFromAPI() {
   try {
