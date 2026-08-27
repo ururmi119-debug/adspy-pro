@@ -722,51 +722,51 @@ app.delete('/api/ads/db/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// ─── FAVORITES ENDPOINTS (SUPABASE/POSTGRES) ────────────────────
-app.get('/api/favorites', authMiddleware, async (req, res) => {
+// ─── FAVORITES ENDPOINTS (NO AUTH - BROWSER SESSION BASED) ────────────────────
+app.get('/api/favorites', async (req, res) => {
   try {
-    const token = req.headers['authorization'].split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const userId = decoded.user;
+    const sessionId = req.headers['x-session-id'];
+    if (!sessionId) {
+      return res.json({ favorites: [], count: 0 });
+    }
 
     const result = await pool.query(
       'SELECT ad_id FROM user_favorites WHERE user_id = $1 ORDER BY created_at DESC',
-      [userId]
+      [sessionId]
     );
     
     const favoriteIds = result.rows.map(row => row.ad_id);
     res.json({ favorites: favoriteIds, count: favoriteIds.length });
   } catch (err) {
     console.error('Get favorites error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch favorites' });
+    res.json({ favorites: [], count: 0 });
   }
 });
 
-app.post('/api/favorites/toggle/:adId', authMiddleware, async (req, res) => {
+app.post('/api/favorites/toggle/:adId', async (req, res) => {
   try {
-    const token = req.headers['authorization'].split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const userId = decoded.user;
+    const sessionId = req.headers['x-session-id'];
+    if (!sessionId) {
+      return res.status(400).json({ error: 'No session ID' });
+    }
+
     const adId = req.params.adId;
 
-    // Check if already favorite
     const check = await pool.query(
       'SELECT id FROM user_favorites WHERE user_id = $1 AND ad_id = $2',
-      [userId, adId]
+      [sessionId, adId]
     );
 
     if (check.rows.length > 0) {
-      // Remove from favorites
       await pool.query(
         'DELETE FROM user_favorites WHERE user_id = $1 AND ad_id = $2',
-        [userId, adId]
+        [sessionId, adId]
       );
       res.json({ action: 'removed', adId, message: 'Removed from favorites' });
     } else {
-      // Add to favorites
       await pool.query(
         'INSERT INTO user_favorites (user_id, ad_id) VALUES ($1, $2)',
-        [userId, adId]
+        [sessionId, adId]
       );
       res.json({ action: 'added', adId, message: 'Added to favorites' });
     }
@@ -776,16 +776,18 @@ app.post('/api/favorites/toggle/:adId', authMiddleware, async (req, res) => {
   }
 });
 
-app.delete('/api/favorites/:adId', authMiddleware, async (req, res) => {
+app.delete('/api/favorites/:adId', async (req, res) => {
   try {
-    const token = req.headers['authorization'].split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const userId = decoded.user;
+    const sessionId = req.headers['x-session-id'];
+    if (!sessionId) {
+      return res.status(400).json({ error: 'No session ID' });
+    }
+
     const adId = req.params.adId;
 
     const result = await pool.query(
       'DELETE FROM user_favorites WHERE user_id = $1 AND ad_id = $2',
-      [userId, adId]
+      [sessionId, adId]
     );
 
     res.json({ deleted: result.rowCount > 0, adId });
