@@ -1375,20 +1375,28 @@ async function deleteOneAd(id) {
 }
 
 // ═══════════════════════════════════
+// SESSION ID MANAGEMENT
+// ═══════════════════════════════════
+function getSessionId() {
+  let sessionId = localStorage.getItem('sessionId');
+  if (!sessionId) {
+    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('sessionId', sessionId);
+  }
+  return sessionId;
+}
+
+// ═══════════════════════════════════
 // FAVORITES (API-BASED PERSISTENCE)
 // ═══════════════════════════════════
 async function toggleFav(id, btn) {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      toast('Please login first', 'error');
-      return;
-    }
+    const sessionId = getSessionId();
 
     const response = await fetch(`/api/favorites/toggle/${id}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'x-session-id': sessionId,
         'Content-Type': 'application/json'
       }
     });
@@ -1837,13 +1845,12 @@ async function emailRecipeToSelf() {
 // ─── LOAD FAVORITES FROM API ON PAGE LOAD ────────────────────────
 async function loadFavoritesFromAPI() {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    const sessionId = getSessionId();
 
     const response = await fetch('/api/favorites', {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'x-session-id': sessionId,
         'Content-Type': 'application/json'
       }
     });
