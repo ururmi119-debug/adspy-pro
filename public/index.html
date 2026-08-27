@@ -1375,6 +1375,27 @@ async function deleteOneAd(id) {
 }
 
 // ═══════════════════════════════════
+// QUALITY FILTER (Hide 18+, romantic, no-thumbnail)
+// ═══════════════════════════════════
+function isQualityAd(ad) {
+  // Skip ads with quality filter tags
+  if (!ad.tags) return true;
+  
+  const tags = Array.isArray(ad.tags) ? ad.tags : [];
+  
+  // Hide 18+ content
+  if (tags.includes('18+')) return false;
+  
+  // Hide romantic/dating content
+  if (tags.includes('romantic')) return false;
+  
+  // Hide ads without thumbnail
+  if (tags.includes('no-thumbnail')) return false;
+  
+  return true;
+}
+
+// ═══════════════════════════════════
 // SESSION ID MANAGEMENT
 // ═══════════════════════════════════
 function getSessionId() {
@@ -1891,10 +1912,11 @@ async function loadAdsFromDatabase() {
     const data = await response.json();
     
     if (data.ads && Array.isArray(data.ads)) {
-      ads = data.ads;
-      console.log('✅ Loaded ' + ads.length + ' ads from database');
+      // Apply quality filter
+      ads = data.ads.filter(isQualityAd);
+      console.log('✅ Loaded ' + ads.length + ' quality ads from database (filtered)');
       
-      // Re-render grids with loaded ads
+      // Re-render grids with filtered ads
       renderGrid('total-grid', getSortedFiltered());
       renderGrid('fav-grid', ads.filter(a => favs.has(a.id)));
       
