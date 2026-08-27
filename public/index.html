@@ -1875,7 +1875,36 @@ async function loadFavoritesFromAPI() {
 
 window.addEventListener('load', () => {
   setTimeout(loadFavoritesFromAPI, 500);
+  setTimeout(loadAdsFromDatabase, 1000);
 });
+
+// ─── LOAD ADS FROM DATABASE ON PAGE LOAD ────────────────────────
+async function loadAdsFromDatabase() {
+  try {
+    const response = await fetch('/api/ads/db');
+    
+    if (!response.ok) {
+      console.warn('Failed to load ads from database');
+      return;
+    }
+
+    const data = await response.json();
+    
+    if (data.ads && Array.isArray(data.ads)) {
+      ads = data.ads;
+      console.log('✅ Loaded ' + ads.length + ' ads from database');
+      
+      // Re-render grids with loaded ads
+      renderGrid('total-grid', getSortedFiltered());
+      renderGrid('fav-grid', ads.filter(a => favs.has(a.id)));
+      
+      // Update sidebar counts
+      setTxt('sb-total', ads.length);
+    }
+  } catch (err) {
+    console.error('Failed to load ads from database:', err);
+  }
+}
 </script>
 </body>
 </html>
