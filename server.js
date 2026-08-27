@@ -617,7 +617,6 @@ setInterval(autoArchiveStaleAds, 24 * 60 * 60 * 1000);
 app.get('/api/ads/db', async (req, res) => {
   try {
     const statusFilter = req.query.status || 'active'; // 'active' | 'archived' | 'all'
-    const limit = parseInt(req.query.limit) || 200;
 
     let whereClauses = [];
     const params = [];
@@ -626,14 +625,12 @@ app.get('/api/ads/db', async (req, res) => {
       whereClauses.push(`status = $${params.length}`);
     }
     whereClauses.push(`thumbnail_url IS NOT NULL AND thumbnail_url != ''`);
-    params.push(limit);
     const whereClause = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
     const query = `
       SELECT * FROM ads
       ${whereClause}
       ORDER BY last_seen_at DESC
-      LIMIT $${params.length}
     `;
 
     const result = await pool.query(query, params);
