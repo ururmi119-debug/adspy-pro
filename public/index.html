@@ -956,7 +956,7 @@ function loadDemo() {
 async function loadFromDB(silent) {
   if(!silent) setApiSt('connecting','Loading synced ads...');
   try {
-    const url = `${window.location.origin}/api/ads/db?status=all&limit=200`;
+    const url = `${window.location.origin}/api/ads/db?status=all`;
     const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
     const d = await r.json();
     if(d.error) throw new Error(d.error);
@@ -1378,18 +1378,7 @@ async function deleteOneAd(id) {
 // QUALITY FILTER (Hide 18+, romantic only)
 // ═══════════════════════════════════
 function isQualityAd(ad) {
-  // Skip ads with quality filter tags
-  if (!ad.tags) return true;
-  
-  const tags = Array.isArray(ad.tags) ? ad.tags : [];
-  
-  // Hide 18+ content
-  if (tags.includes('18+')) return false;
-  
-  // Hide romantic/dating content
-  if (tags.includes('romantic')) return false;
-  
-  return true;
+  return true; // Show all ads - filter disabled
 }
 
 // ═══════════════════════════════════
