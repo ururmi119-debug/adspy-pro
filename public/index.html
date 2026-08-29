@@ -956,7 +956,7 @@ function loadDemo() {
 async function loadFromDB(silent) {
   if(!silent) setApiSt('connecting','Loading synced ads...');
   try {
-    const url = `${window.location.origin}/api/ads/db?status=all`;
+    const url = `${window.location.origin}/api/ads/db?status=all&limit=200`;
     const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
     const d = await r.json();
     if(d.error) throw new Error(d.error);
@@ -1375,35 +1375,20 @@ async function deleteOneAd(id) {
 }
 
 // ═══════════════════════════════════
-// QUALITY FILTER (Hide 18+, romantic only)
-// ═══════════════════════════════════
-function isQualityAd(ad) {
-  return true; // Show all ads - filter disabled
-}
-
-// ═══════════════════════════════════
-// SESSION ID MANAGEMENT
-// ═══════════════════════════════════
-function getSessionId() {
-  let sessionId = localStorage.getItem('sessionId');
-  if (!sessionId) {
-    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('sessionId', sessionId);
-  }
-  return sessionId;
-}
-
-// ═══════════════════════════════════
 // FAVORITES (API-BASED PERSISTENCE)
 // ═══════════════════════════════════
 async function toggleFav(id, btn) {
   try {
-    const sessionId = getSessionId();
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast('Please login first', 'error');
+      return;
+    }
 
     const response = await fetch(`/api/favorites/toggle/${id}`, {
       method: 'POST',
       headers: {
-        'x-session-id': sessionId,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -1628,34 +1613,25 @@ let tT; function toast(msg,type){const el=document.getElementById('toast');el.te
 // Init
 updateAll();
   async function toggleFav(id, btn) {
-  try {
-    const sessionId = getSessionId();
-    const response = await fetch(`/api/favorites/toggle/${id}`, {
-      method: 'POST',
-      headers: {
-        'x-session-id': sessionId,
-        'Content-Type': 'application/json'
-      }
-    });
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-    const data = await response.json();
-    if (data.action === 'removed') {
-      favs.delete(id);
-      if (btn) btn.textContent = '☆';
-      toast('Removed from favorites', 'ok');
-    } else if (data.action === 'added') {
-      favs.add(id);
-      if (btn) btn.textContent = '⭐';
-      toast('Added to favorites ⭐', 'ok');
-    }
-    setTxt('sb-fav', favs.size);
-    const favAds = ads.filter(a => favs.has(a.id));
-    renderGrid('fav-grid', favAds);
-    renderGrid('total-grid', getSortedFiltered());
-  } catch (err) {
-    console.error('Favorite error:', err);
-    toast('Failed to save favorite: ' + err.message, 'error');
+  const userId = getCurrentUserId();
+  
+  if(favs.has(id)) {
+    await removeFavoriteFromDB(userId, id);
+    favs.delete(id);
+    if(btn) btn.textContent = '☆';
+    toast('Removed from favorites', 'ok');
+  } else {
+    await addFavoriteTooDB(userId, id);
+    favs.add(id);
+    if(btn) btn.textContent = '⭐';
+    toast('Added to favorites ⭐', 'ok');
   }
+  
+  setTxt('sb-fav', favs.size);
+  const favAds = ads.filter(a => favs.has(a.id));
+  renderGrid('fav-grid', favAds);
+  renderGrid('total-grid', getSortedFiltered());
+}
   // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN RECIPE CARD SYSTEM — View + Copy (6 options)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1861,12 +1837,13 @@ async function emailRecipeToSelf() {
 // ─── LOAD FAVORITES FROM API ON PAGE LOAD ────────────────────────
 async function loadFavoritesFromAPI() {
   try {
-    const sessionId = getSessionId();
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
     const response = await fetch('/api/favorites', {
       method: 'GET',
       headers: {
-        'x-session-id': sessionId,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -1891,37 +1868,7 @@ async function loadFavoritesFromAPI() {
 
 window.addEventListener('load', () => {
   setTimeout(loadFavoritesFromAPI, 500);
-  setTimeout(loadAdsFromDatabase, 1000);
 });
-
-// ─── LOAD ADS FROM DATABASE ON PAGE LOAD ────────────────────────
-async function loadAdsFromDatabase() {
-  try {
-    const response = await fetch('/api/ads/db');
-    
-    if (!response.ok) {
-      console.warn('Failed to load ads from database');
-      return;
-    }
-
-    const data = await response.json();
-    
-    if (data.ads && Array.isArray(data.ads)) {
-      // Apply quality filter
-      ads = data.ads.filter(isQualityAd);
-      console.log('✅ Loaded ' + ads.length + ' quality ads from database (filtered)');
-      
-      // Re-render grids with filtered ads
-      renderGrid('total-grid', getSortedFiltered());
-      renderGrid('fav-grid', ads.filter(a => favs.has(a.id)));
-      
-      // Update sidebar counts
-      setTxt('sb-total', ads.length);
-    }
-  } catch (err) {
-    console.error('Failed to load ads from database:', err);
-  }
-}
 </script>
 </body>
 </html>
