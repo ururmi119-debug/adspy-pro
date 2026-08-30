@@ -1378,12 +1378,9 @@ async function deleteOneAd(id) {
 // QUALITY FILTER (Hide 18+, romantic only)
 // ═══════════════════════════════════
 function isQualityAd(ad) {
-  if (!ad.tags) return true;
-  const tags = Array.isArray(ad.tags) ? ad.tags : [];
-  if (tags.includes('18+')) return false;
-  if (tags.includes('romantic')) return false;
-  return true;
+  return true; // Show all ads - filter disabled
 }
+
 // ═══════════════════════════════════
 // SESSION ID MANAGEMENT
 // ═══════════════════════════════════
