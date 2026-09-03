@@ -663,35 +663,38 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
   </div><!-- /content -->
 </div><!-- /main -->
 
-<script>
 // ═══════════════════════════════════
 // AUTH / LOGIN
 // ═══════════════════════════════════
 function getAuthToken() {
   return sessionStorage.getItem('adradar_token') || '';
 }
+
 function showApp() {
   document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
   setTimeout(() => {
-    loadFromDB(true);
-    if(!window._adradarPollRef) {
-      window._adradarPollRef = setInterval(() => loadFromDB(true), 30000);
-    }
-  }, 0);
+    loadAdsFromDatabase();
+  }, 500);
 }
+
 function showLogin() {
   document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
 }
+
 async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
   const errEl = document.getElementById('loginError');
+  
   errEl.style.display = 'none';
   if (!u || !p) {
     errEl.textContent = 'Enter username and password';
     errEl.style.display = 'block';
     return;
   }
+
   try {
     const res = await fetch('/api/login', {
       method: 'POST',
@@ -699,11 +702,13 @@ async function doLogin() {
       body: JSON.stringify({ username: u, password: p })
     });
     const data = await res.json();
+    
     if (!res.ok || !data.token) {
       errEl.textContent = data.error || 'Login failed';
       errEl.style.display = 'block';
       return;
     }
+
     sessionStorage.setItem('adradar_token', data.token);
     showApp();
   } catch (e) {
@@ -711,1217 +716,116 @@ async function doLogin() {
     errEl.style.display = 'block';
   }
 }
+
 function logout() {
   sessionStorage.removeItem('adradar_token');
   location.reload();
-}
-// Check auth on page load
-if (getAuthToken()) {
-  showApp();
-} else {
-  showLogin();
 }
 
 // ═══════════════════════════════════
 // STATE
 // ═══════════════════════════════════
-let ads = [], favs = new Set(), selectedIds = new Set();
-let currentPhaseFilter = 'all', currentQuickFilter = null, currentSort = 'date', currentModelFilter = 'all';
-let currentNicheFilter = 'all', currentAgeRangeFilter = 'all', currentCreativesFilter = 'all';
-
-// DATE FILTERS (NEW)
-let currentWeekFilter = 'all', currentMonthFilter = 'all', currentYearFilter = 'all', currentFavFilter = 'all';
-
-const NICHE_KEYWORDS = {
-  Profession: ['teacher','nurse','firefighter','police','veteran','military','doctor','engineer','trucker','farmer'],
-  Pet: ['dog','cat','pet','puppy','kitten'],
-  Family: ['mom','dad','grandma','grandpa','family','sister','brother','daughter','son'],
-  Sports: ['football','basketball','baseball','soccer','golf','fishing','hunting','pickleball'],
-  Holiday: ['christmas','halloween','birthday','thanksgiving','valentine'],
-  Funny: ['funny','joke','sarcastic','humor'],
-  Gift: ['gift','present','anniversary']
-};
-
-function detectNicheType(text) {
-  let best = 'General', bestScore = 0;
-  for (const niche in NICHE_KEYWORDS) {
-    const hits = keywordHits(text, NICHE_KEYWORDS[niche]);
-    if (hits > bestScore) { bestScore = hits; best = niche; }
-  }
-  return best;
-}
-let gridMode = 'normal';
-
-const PHASE_COLORS = {HOT:'#ef4444',Legend:'#fbbf24','Cash Cow':'#f59e0b',Scaling:'#3b82f6',Winning:'#22c55e',Validating:'#8b5cf6',Testing:'#475569'};
-const MODEL_COLORS = {POD:'#06b6d4',Dropship:'#f97316',Jewelry:'#ec4899',Digital:'#10b981',Amazon:'#f59e0b','Sub Box':'#ec4899'};
+let ads = [];
 
 // ═══════════════════════════════════
-// AI ENGINE — Step 3: 100% real-signal scoring
-// ═══════════════════════════════════
-const POD_NICHE_KEYWORDS = ['print','custom','islamic','muslim','motivational','teacher','nurse','tshirt','hoodie','mug','poster','shirt','hijab','quran','mom','dad','dog','cat','faith','personalized','quote','gift','birthday','christmas','family','pet','sport','veteran','firefighter','police','military'];
-
-function calcNicheQuality(text) {
-  const hits = keywordHits(text, POD_NICHE_KEYWORDS);
-  if(hits>=6) return 20;
-  if(hits>=4) return 15;
-  if(hits>=2) return 10;
-  if(hits>=1) return 5;
-  return 0;
-}
-
-function calcScore(days, dups, countries, nicheScore) {
-  let s = 0;
-  if(days>=181)s+=35; else if(days>=91)s+=30; else if(days>=61)s+=25; else if(days>=31)s+=18; else if(days>=15)s+=12; else if(days>=8)s+=6; else s+=2;
-  if(dups>=30)s+=25; else if(dups>=15)s+=20; else if(dups>=8)s+=15; else if(dups>=4)s+=10; else if(dups>=2)s+=5;
-  if(countries>=15)s+=20; else if(countries>=6)s+=15; else if(countries>=3)s+=10; else if(countries>=2)s+=5;
-  s += (nicheScore||0);
-  return s;
-}
-
-function detectPhase(score, days, dups, countries) {
-  // HOT — special viral case
-  if(days <= 14 && dups >= 8 && countries >= 3) {
-    return 'HOT';
-  }
-  
-  // Regular phases — calibrated for 20-40 range
-  if(score >= 38) return 'Legend';
-  if(score >= 32) return 'Cash Cow';
-  if(score >= 26) return 'Scaling';
-  if(score >= 20) return 'Winning';
-  if(score >= 14) return 'Validating';
-  if(score >= 8)  return 'Testing';
-  
-  return 'Testing';
-}
-function keywordHits(text, keywords) {
-  const t = (text||'').toLowerCase();
-  let count = 0;
-  keywords.forEach(kw => {
-    const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp('\\b' + esc + '\\b', 'i');
-    if(re.test(t)) count++;
-  });
-  return count;
-}
-
-const NON_POD_OVERRIDE_KEYWORDS = ['soap','lotion','cream','deodorant','skincare','serum','shampoo','conditioner','supplement','vitamin','capsule','tablet','probiotic','moisturizer','sunscreen','toothpaste','perfume','cologne'];
-
-function detectModel(text) {
-  if (keywordHits(text, NON_POD_OVERRIDE_KEYWORDS) > 0) return 'Unknown';
-  const podStrongHits = keywordHits(text, ['tshirt','t-shirt','hoodie','mug','poster','shirt','pillow','hat','tumbler','sweatshirt','tank top','apparel','canvas','ornament','blanket','calligraphy']);
-  const podWeakHits = keywordHits(text, ['print','custom','personalized','islamic','muslim','motivational','teacher','nurse','quote','hijab','quran','mom','dad','dog','cat','faith']);
-  const s = {
-    POD: podStrongHits > 0 ? (podStrongHits * 3 + podWeakHits) : 0,
-    Dropship: keywordHits(text, ['free shipping','order now','limited stock','buy now','ships from','worldwide']),
-    Jewelry: keywordHits(text, ['necklace','ring','bracelet','jewelry','pendant','gold','silver','diamond','crystal']),
-    Digital: keywordHits(text, ['download','ebook','course','digital','template','preset','canva']),
-    Amazon: keywordHits(text, ['amazon','prime','asin']),
-    'Sub Box': keywordHits(text, ['subscribe','subscription','monthly box','box club'])
-  };
-  const best=Object.entries(s).sort((a,b)=>b[1]-a[1]);
-  return best[0][1]>0?best[0][0]:'Unknown';
-}
-
-// ═══════════════════════════════════
-// FETCH
-// ═══════════════════════════════════
-async function fetchAds() {
-  const tok = document.getElementById('s-tok').value.trim();
-  const q   = document.getElementById('s-qry').value.trim();
-  if(!tok){toast('Enter Access Token!','err');return;}
-  if(!q){toast('Enter search query!','err');return;}
-  setApiSt('connecting','Connecting...');
-  const country = document.getElementById('s-ctr').value;
-  const limit   = document.getElementById('s-lim').value;
-  try {
-    const url = `${window.location.origin}/api/ads?` + new URLSearchParams({access_token:tok,search_terms:q,country,limit});
-    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
-    const d = await r.json();
-    if(d.error) throw new Error(d.error);
-    const newAds = dedup(d.ads||[]);
-    ads = [...ads, ...newAds];
-    setApiSt('ok',`Connected · ${ads.length} ads`);
-    updateAll();
-    toast(`${d.ads.length} ads fetched!`,'ok');
-  } catch(e) {
-    setApiSt('err','Error');
-    toast(e.message.slice(0,60),'err');
-  }
-}
-
-function dedup(n){const ex=new Set(ads.map(a=>a.id));const blocked=new Set(getBlockedIds());return n.filter(a=>!ex.has(a.id) && !blocked.has(a.id));}
-
-// ═══════════════════════════════════
-// TAGS & BLOCK
-// ═══════════════════════════════════
-const SUGGESTED_TAGS = ['Firefighter','Police','Nurse','Military','Teacher','Veteran','Fishing','Hunting','Hiking','Gardening','Yoga','Gaming','Cooking','Football','Basketball','Baseball'];
-
-function getTagsFor(id) {
-  const a = ads.find(x=>x.id===id);
-  return (a && a.tags) ? a.tags : [];
-}
-
-async function addTagTo(id, tag) {
-  tag = (tag||'').trim();
-  if(!tag) return;
-  const a = ads.find(x=>x.id===id);
-  if(!a) return;
-  const current = a.tags || [];
-  if(current.includes(tag)) return;
-  const updated = [...current, tag];
-  a.tags = updated;
-  renderModalTags(id);
-  await saveTagsToServer(id, updated);
-}
-
-async function removeTagFrom(id, tag) {
-  const a = ads.find(x=>x.id===id);
-  if(!a) return;
-  const updated = (a.tags||[]).filter(t=>t!==tag);
-  a.tags = updated;
-  renderModalTags(id);
-  await saveTagsToServer(id, updated);
-}
-
-async function saveTagsToServer(id, tags) {
-  if(String(id).startsWith('demo_')) return;
-  try {
-    const r = await fetch('/api/ads/' + encodeURIComponent(id) + '/tags', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
-      body: JSON.stringify({ tags })
-    });
-    if(!r.ok) throw new Error('Failed to save tags');
-  } catch(e) {
-    toast('Tag save failed — check connection','err');
-  }
-}
-
-function getBlockedIds(){ try{ return JSON.parse(localStorage.getItem('adradar_blocked')||'[]'); }catch(e){ return []; } }
-function blockAd(id){
-  const list = getBlockedIds();
-  if(!list.includes(id)) list.push(id);
-  localStorage.setItem('adradar_blocked', JSON.stringify(list));
-  ads = ads.filter(a=>a.id!==id);
-  selectedIds.delete(id);
-  favs.delete(id);
-  updateAll();
-  document.getElementById('modBg').classList.remove('show');
-  toast('Ad blocked — won\'t show again','ok');
-}
-
-function showAllAdsForPage(pageName){
-  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('on'));
-  const totalTab = document.querySelector('[data-page="totalads"]');
-  if(totalTab) totalTab.classList.add('on');
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
-  document.getElementById('page-totalads').classList.add('on');
-  document.getElementById('pageTitle').textContent = 'Total Ads';
-  const filtered = ads.filter(a=>a.pageName===pageName);
-  renderGrid('total-grid', filtered);
-  document.getElementById('modBg').classList.remove('show');
-  toast(`Showing ${filtered.length} ads from ${pageName}`,'ok');
-}
-
-// ═══════════════════════════════════
-// DEMO DATA
-// ═══════════════════════════════════
-function loadDemo() {
-  const raw=[
-    {pageName:"IslamicTeesCo",adText:"Premium Islamic quote t-shirts. Custom prints with beautiful calligraphy. Free shipping over $35!",landingUrl:"islamictees.myshopify.com",runningDays:72,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK, CA",countryCount:3,impressions:"120K–180K",duplicateCount:8},
-    {pageName:"MotivateWear",adText:"Wear your motivation! 100% cotton hoodies with powerful quotes. Limited edition drops every week.",landingUrl:"motivatewear.com",runningDays:45,isActive:true,isShopify:true,creativeType:"Video",countries:"US, AU",countryCount:2,impressions:"80K–120K",duplicateCount:5},
-    {pageName:"TeacherGiftShop",adText:"The perfect gift for your favorite teacher! Custom mugs, totes & t-shirts. Personalize today!",landingUrl:"teachergifts.myshopify.com",runningDays:28,isActive:true,isShopify:true,creativeType:"Carousel",countries:"US",countryCount:1,impressions:"40K–60K",duplicateCount:3},
-    {pageName:"NurseLifeStore",adText:"For nurses who love what they do. Exclusive nurse appreciation collection. Ships in 3 days.",landingUrl:"nurselife.com/shop",runningDays:18,isActive:true,isShopify:false,creativeType:"Image",countries:"US, CA",countryCount:2,impressions:"25K–40K",duplicateCount:2},
-    {pageName:"SilverMoonJewelry",adText:"Handcrafted silver necklaces & rings. Each piece tells a story. Free engraving on all orders!",landingUrl:"silvermoon.myshopify.com",runningDays:95,isActive:false,isShopify:true,creativeType:"Image",countries:"US, UK",countryCount:2,impressions:"200K–300K",duplicateCount:12},
-    {pageName:"QuranVersePrints",adText:"Beautiful Quran verse wall art for your home. Premium quality canvas prints. Worldwide shipping.",landingUrl:"quranprints.com",runningDays:60,isActive:true,isShopify:false,creativeType:"Image",countries:"US, UK, AU, CA",countryCount:4,impressions:"150K–200K",duplicateCount:15},
-    {pageName:"DigitalTemplatesPro",adText:"500+ Canva templates for social media. One-time purchase, lifetime access. Download instantly!",landingUrl:"digitaltemplates.gumroad.com",runningDays:12,isActive:true,isShopify:false,creativeType:"Video",countries:"US",countryCount:1,impressions:"15K–25K",duplicateCount:1},
-    {pageName:"CrystalDropShip",adText:"Healing crystals & gemstones delivered to your door. 100% authentic, ethically sourced.",landingUrl:"crystalstore.myshopify.com",runningDays:8,isActive:true,isShopify:true,creativeType:"Carousel",countries:"US, AU",countryCount:2,impressions:"8K–15K",duplicateCount:1},
-    {pageName:"MindfulMugs",adText:"Start your morning right with a motivational mug. Ceramic, dishwasher safe, ships in 2 days.",landingUrl:"mindfulmugs.myshopify.com",runningDays:35,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK",countryCount:2,impressions:"55K–80K",duplicateCount:4},
-    {pageName:"HijabFashionStore",adText:"Modern hijab styles for the contemporary Muslim woman. Breathable fabric, vibrant new colors!",landingUrl:"hijabfashion.com/new",runningDays:50,isActive:true,isShopify:false,creativeType:"Carousel",countries:"US, UK, CA, MY",countryCount:4,impressions:"90K–130K",duplicateCount:7},
-    {pageName:"SnackBoxMonthly",adText:"Discover new snacks every month! Curated international snack boxes. First box 50% off!",landingUrl:"snackboxmonthly.com/subscribe",runningDays:42,isActive:true,isShopify:false,creativeType:"Video",countries:"US, CA",countryCount:2,impressions:"70K–100K",duplicateCount:3},
-    {pageName:"DogMomStore",adText:"For the ultimate dog mom! Custom tees, mugs & accessories. Show your pup some love!",landingUrl:"dogmomstore.myshopify.com",runningDays:200,isActive:true,isShopify:true,creativeType:"Image",countries:"US, UK, AU, CA, DE",countryCount:5,impressions:"500K–1M",duplicateCount:35},
-  ];
-  ads = raw.map((d,i)=>{
-    const nicheScore = calcNicheQuality(d.adText+' '+d.pageName);
-    const score = calcScore(d.runningDays, d.duplicateCount||1, d.countryCount||1, nicheScore);
-    const phase = detectPhase(score, d.runningDays, d.duplicateCount||1, d.countryCount||1);
-    const model = detectModel(d.adText+' '+d.pageName+' '+d.landingUrl);
-    return {id:`demo_${i}`, ...d, phase, model, score, confidence:Math.round(Math.min(score/100,1)*100), startDate:new Date(Date.now()-d.runningDays*864e5).toLocaleDateString('en-US')};
-  });
-  updateAll();
-  toast(`${ads.length} demo ads loaded!`,'ok');
-}
-
-async function loadFromDB(silent) {
-  if(!silent) setApiSt('connecting','Loading synced ads...');
-  try {
-    const url = `${window.location.origin}/api/ads/db?status=all`;
-    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
-    const d = await r.json();
-    if(d.error) throw new Error(d.error);
-    const newAds = dedup(d.ads||[]);
-    ads = [...ads, ...newAds];
-    setApiSt('ok',`Connected · ${ads.length} ads`);
-    updateAll();
-    if(!silent) toast(`${d.ads.length} synced ads loaded!`,'ok');
-    else if(newAds.length) toast(`${newAds.length} new ad${newAds.length>1?'s':''} synced`,'ok');
-  } catch(e) {
-    if(!silent) { setApiSt('err','Error'); toast(e.message.slice(0,60),'err'); }
-  }
-}
-
-// ═══════════════════════════════════
-// DATE FILTERS (NEW - Core Logic)
-// ═══════════════════════════════════
-function applyDateFilters() {
-  currentWeekFilter = document.getElementById('weekFilter').value;
-  currentMonthFilter = document.getElementById('monthFilter').value;
-  currentYearFilter = document.getElementById('yearFilter').value;
-  currentFavFilter = document.getElementById('favFilter').value;
-  renderGrid('total-grid', getSortedFiltered());
-}
-
-function resetDateFilters() {
-  document.getElementById('weekFilter').value = 'all';
-  document.getElementById('monthFilter').value = 'all';
-  document.getElementById('yearFilter').value = 'all';
-  document.getElementById('favFilter').value = 'all';
-  currentWeekFilter = 'all';
-  currentMonthFilter = 'all';
-  currentYearFilter = 'all';
-  currentFavFilter = 'all';
-  renderGrid('total-grid', getSortedFiltered());
-  toast('Filters reset','ok');
-}
-
-function filterByDateRange(ad) {
-  if(currentWeekFilter !== 'all') {
-    const days = parseInt(currentWeekFilter);
-    if(ad.runningDays > days) return false;
-  }
-  if(currentMonthFilter !== 'all') {
-    if(!ad.startDate) return false;
-    const adDate = new Date(ad.startDate);
-    if(adDate.getMonth() !== parseInt(currentMonthFilter)) return false;
-  }
-  if(currentYearFilter !== 'all') {
-    if(!ad.startDate) return false;
-    const adDate = new Date(ad.startDate);
-    if(adDate.getFullYear() !== parseInt(currentYearFilter)) return false;
-  }
-  return true;
-}
-
-// ═══════════════════════════════════
-// RENDER
-// ═══════════════════════════════════
-function cardHTML(a, mode='normal', selectable=false) {
-  const pc = PHASE_COLORS[a.phase]||'#475569';
-  const typeIco = a.creativeType?.includes('Video')?'🎬':a.creativeType?.includes('Carousel')?'🎠':'';
-  const isFav = favs.has(a.id);
-  const isSel = selectedIds.has(a.id);
-  const imgH = mode==='large'?'ad-img lg':'ad-img';
-  const initial = (a.pageName||'?').trim().charAt(0).toUpperCase() || '?';
-  const gradColors = ['#3b82f6,#1e40af','#ec4899,#9d174d','#06b6d4,#0e7490','#f59e0b,#b45309','#8b5cf6,#5b21b6','#22c55e,#15803d','#f97316,#c2410c'];
-  const gradIdx = (initial.charCodeAt(0) || 0) % gradColors.length;
-  const placeholder = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,${gradColors[gradIdx]});font-family:'Space Mono',monospace;font-size:34px;font-weight:700;color:rgba(255,255,255,.85)">${initial}${typeIco?`<span style="position:absolute;bottom:8px;right:8px;font-size:16px;opacity:.85">${typeIco}</span>`:''}</div>`;
-  const imgContent = a.thumbnailUrl ? `<img src="${a.thumbnailUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,${gradColors[gradIdx]});font-family:'Space Mono',monospace;font-size:34px;font-weight:700;color:rgba(255,255,255,.85)">${initial}</div>` : placeholder;
-  const selCheck = selectable ? `<div style="position:absolute;top:8px;left:8px;width:18px;height:18px;border-radius:4px;background:${isSel?'var(--acc)':'rgba(0,0,0,.5)'};border:1.5px solid ${isSel?'var(--acc)':'rgba(255,255,255,.3)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff" onclick="event.stopPropagation();toggleSelect('${a.id}')">${isSel?'✓':''}</div>` : '';
-  return `<div class="ad-card" onclick="${selectable?`toggleSelect('${a.id}')`:`openMod('${a.id}')`}">
-    <div class="${imgH}">${imgContent}
-      ${selectable ? selCheck : `<div class="phase-b" style="background:${pc}22;color:${pc};border:1px solid ${pc}44">${a.phase}</div>`}
-      <div class="model-b">${a.model}</div>
-      <div class="conf-b">${a.confidence||0}%</div>
-      <div class="score-line" style="width:${Math.min((a.score||0),100)}%"></div>
-      <div class="star-btn" title="${isFav?'Unfavorite':'Favorite'}" onclick="event.stopPropagation();toggleFav('${a.id}',this)">${isFav?'⭐':'☆'}</div>
-      ${a.snapshotUrl?`<div style="position:absolute;bottom:6px;left:6px;right:6px;text-align:center" onclick="event.stopPropagation();window.open('${a.snapshotUrl}','_blank')"><span style="background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:4px 8px;border-radius:6px;cursor:pointer">🔗 View Real Ad</span></div>`:''}
-    </div>
-    <div class="ad-body">
-      <div class="ad-page">📄 ${a.pageName}</div>
-      <div class="ad-txt">${a.adText||'No ad text'}</div>
-      <div class="ad-chips">
-        ${a.isActive?'<span class="chip act">● Active</span>':'<span class="chip inact">○ Inactive</span>'}
-        ${a.isShopify?'<span class="chip shp">Shopify</span>':''}
-        ${(a.duplicateCount||1)>=5?'<span class="chip" style="color:var(--hot);border-color:rgba(239,68,68,.3)">🔥 Competitor Validated</span>':''}
-        <span class="chip">${a.creativeType||'Image'}</span>
-      </div>
-      <div class="ad-foot">
-        <div class="ad-days">Running: <strong>${a.runningDays}d</strong> · ${a.startDate||'—'}</div>
-        <div class="ad-acts">
-          <div class="aact" title="Details" onclick="event.stopPropagation();openMod('${a.id}')">👁</div>
-          ${a.landingUrl?`<div class="aact" title="Visit" onclick="event.stopPropagation();window.open('https://${a.landingUrl}','_blank')">🔗</div>`:''}
-          <div class="aact" title="Delete this ad" style="color:var(--hot)" onclick="event.stopPropagation();deleteOneAd('${a.id}')">🗑</div>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-
-function listCardHTML(a) {
-  const pc = PHASE_COLORS[a.phase]||'#475569';
-  const isFav = favs.has(a.id);
-  return `<div class="ad-card list-card" onclick="openMod('${a.id}')">
-    <div class="ad-img" style="height:80px;width:180px;position:relative">🖼️
-      <div class="phase-b" style="background:${pc}22;color:${pc};border:1px solid ${pc}44;font-size:8px">${a.phase}</div>
-      <div class="star-btn" style="font-size:14px;right:8px" title="${isFav?'Unfavorite':'Favorite'}" onclick="event.stopPropagation();toggleFav('${a.id}',this)">${isFav?'⭐':'☆'}</div>
-    </div>
-    <div class="ad-body" style="padding:10px 14px">
-      <div class="ad-page">📄 ${a.pageName}</div>
-      <div class="ad-txt">${a.adText||'No ad text'}</div>
-      <div class="ad-chips">
-        ${a.isActive?'<span class="chip act">● Active</span>':'<span class="chip inact">○ Inactive</span>'}
-        <span class="chip">${a.model}</span>
-        <span class="chip">${a.creativeType||'Image'}</span>
-      </div>
-    </div>
-    <div class="ad-foot" style="flex-direction:column;gap:5px;padding:10px 12px;border-top:none;border-left:1px solid var(--b1);min-width:120px">
-      <div style="font-size:11px;color:var(--acc);font-family:'Space Mono',monospace;font-weight:700">${a.runningDays}d</div>
-      <div style="font-size:10px;color:var(--t3)">Score: ${a.score||0}</div>
-      <div style="font-size:10px;color:var(--t3)">${a.impressions||'N/A'}</div>
-    </div>
-  </div>`;
-}
-
-function renderGrid(containerId, list, mode='normal', selectable=false) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  if (!list.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-ico">📭</div><h3>No ads found</h3><p>Load demo data or fetch from Meta.</p></div>`;
-    return;
-  }
-  el.className = `ads-grid${mode==='large'?' lg':''}${mode==='list'?' list':''}`;
-  el.innerHTML = list.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
-}
-
-// ═══════════════════════════════════
-// UPDATE ALL
-// ═══════════════════════════════════
-function updateAll() {
-  const active = ads.filter(a=>a.isActive).length;
-  const hot    = ads.filter(a=>a.phase==='HOT').length;
-  const pod    = ads.filter(a=>a.model==='POD').length;
-  const win    = ads.filter(a=>['HOT','Legend','Cash Cow','Scaling','Winning'].includes(a.phase)).length;
-
-  setTxt('d-total', ads.length);
-  setTxt('d-active', active);
-  setTxt('d-hot', hot);
-  setTxt('d-pod', pod);
-  setTxt('d-win', win);
-  setTxt('sb-total', ads.length);
-  setTxt('sb-ads', ads.length);
-  setTxt('sb-hot', hot);
-  setTxt('sb-fav', favs.size);
-  setTxt('bk-count', ads.length);
-  setTxt('bk-date', ads.length ? new Date().toLocaleString() : '—');
-
-  document.getElementById('sb-total').textContent = ads.length;
-
-  const phases = ['HOT','Legend','Cash Cow','Scaling','Winning','Validating','Testing'];
-  const pBars = phases.map(p => {
-    const cnt = ads.filter(a=>a.phase===p).length;
-    const pct = ads.length ? Math.round(cnt/ads.length*100) : 0;
-    const col = PHASE_COLORS[p]||'#475569';
-    return `<div class="bar-row"><span class="bar-label" style="font-size:10px">${p}</span><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="bar-val">${cnt}</span></div>`;
-  }).join('');
-  setHTML('phase-bars', pBars);
-
-  const models = ['POD','Dropship','Jewelry','Digital','Amazon','Sub Box'];
-  const mBars = models.map(m => {
-    const cnt = ads.filter(a=>a.model===m).length;
-    const pct = ads.length ? Math.round(cnt/ads.length*100) : 0;
-    const col = MODEL_COLORS[m]||'#475569';
-    return `<div class="bar-row"><span class="bar-label" style="font-size:10px">${m}</span><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="bar-val">${cnt}</span></div>`;
-  }).join('');
-  setHTML('model-bars', mBars);
-
-  setTxt('hp-hot-cnt', `${hot} ads`);
-  setTxt('hp-win-cnt', `${ads.filter(a=>a.phase==='Winning').length} ads`);
-  setTxt('hp-sca-cnt', `${ads.filter(a=>a.phase==='Scaling').length} ads`);
-  setTxt('hp-cas-cnt', `${ads.filter(a=>a.phase==='Cash Cow').length} ads`);
-  setTxt('hp-leg-cnt', `${ads.filter(a=>a.phase==='Legend').length} ads`);
-
-  renderGrid('dash-grid', ads.slice(0,8));
-  renderGrid('search-grid', ads.slice(0,12));
-  renderGrid('total-grid', getSortedFiltered());
-  renderGrid('hot-grid', ads.filter(a=>['HOT','Legend','Cash Cow','Scaling','Winning'].includes(a.phase)));
-  renderGrid('gv-grid', ads, gridMode);
-  renderGrid('lv-grid', ads, 'list');
-  renderGrid('archive-grid', ads.filter(a=>!a.isActive));
-  renderGrid('dupes-grid', ads.filter(a=>(a.duplicateCount||1)>1));
-  renderGrid('select-grid', ads, 'normal', true);
-
-  setTxt('sbp-all', ads.length);
-  setTxt('sbp-HOT', hot);
-  setTxt('sbp-CashCow', ads.filter(a=>a.phase==='Cash Cow').length);
-  setTxt('sbp-Scaling', ads.filter(a=>a.phase==='Scaling').length);
-  setTxt('sbp-Winning', ads.filter(a=>a.phase==='Winning').length);
-  setTxt('sbp-Validating', ads.filter(a=>a.phase==='Validating').length);
-  setTxt('sbp-Testing', ads.filter(a=>a.phase==='Testing').length);
-
-  setTxt('sbm-all', ads.length);
-  setTxt('sbm-POD', pod);
-  setTxt('sbm-Dropship', ads.filter(a=>a.model==='Dropship').length);
-  setTxt('sbm-Jewelry', ads.filter(a=>a.model==='Jewelry').length);
-  setTxt('sbm-Digital', ads.filter(a=>a.model==='Digital').length);
-  setTxt('sbm-Amazon', ads.filter(a=>a.model==='Amazon').length);
-  setTxt('sbm-SubBox', ads.filter(a=>a.model==='Sub Box').length);
-
-  buildDomainTable();
-}
-
-function getSortedFiltered() {
-  let f = [...ads];
-  if(currentPhaseFilter !== 'all') f = f.filter(a=>a.phase===currentPhaseFilter);
-  if(currentModelFilter !== 'all') f = f.filter(a=>a.model===currentModelFilter);
-  if(currentQuickFilter === 'active') f = f.filter(a=>a.isActive);
-  if(currentQuickFilter === 'shopify') f = f.filter(a=>a.isShopify);
-  if(currentNicheFilter !== 'all') f = f.filter(a=>detectNicheType((a.adText||'')+' '+(a.pageName||''))===currentNicheFilter);
-  if(currentAgeRangeFilter !== 'all') {
-    f = f.filter(a=>{
-      const d = a.runningDays||0;
-      if(currentAgeRangeFilter==='new') return d<15;
-      if(currentAgeRangeFilter==='growing') return d>=15 && d<45;
-      if(currentAgeRangeFilter==='established') return d>=45 && d<90;
-      if(currentAgeRangeFilter==='veteran') return d>=90;
-      return true;
-    });
-  }
-  if(currentCreativesFilter !== 'all') {
-    f = f.filter(a=>{
-      const c = a.duplicateCount||1;
-      if(currentCreativesFilter==='1') return c===1;
-      if(currentCreativesFilter==='2-3') return c>=2 && c<=3;
-      if(currentCreativesFilter==='4-5') return c>=4 && c<=5;
-      if(currentCreativesFilter==='6+') return c>=6;
-      return true;
-    });
-  }
-  
-  // DATE FILTERS (NEW)
-  if(currentWeekFilter !== 'all' || currentMonthFilter !== 'all' || currentYearFilter !== 'all') {
-    f = f.filter(a => filterByDateRange(a));
-  }
-  
-  // FAVORITES FILTER (NEW)
-  if(currentFavFilter === 'favorites') {
-    f = f.filter(a => favs.has(a.id));
-  }
-  
-  if(currentSort === 'score') f.sort((a,b)=>(b.score||0)-(a.score||0));
-  else f.sort((a,b)=>(b.runningDays||0)-(a.runningDays||0));
-  return f;
-}
-
-function buildDomainTable() {
-  const domains = {};
-  ads.forEach(a => {
-   const d = (() => {
-  try { return new URL(a.landingUrl.startsWith('http') ? a.landingUrl : 'https://' + a.landingUrl).hostname.replace(/^www\./,''); }
-  catch { return a.landingUrl || 'unknown'; }
-})();
-    if(!domains[d]) domains[d] = {domain:d, count:0, phase:a.phase, model:a.model, active:0};
-    domains[d].count++;
-    if(a.isActive) domains[d].active++;
-  });
-  const rows = Object.values(domains).sort((a,b)=>b.count-a.count).slice(0,20);
-  const tbody = rows.map((d,i) => {
-    const pc = PHASE_COLORS[d.phase]||'#475569';
-    return `<tr><td>${i+1}</td><td><strong>${d.domain}</strong></td><td>${d.count}</td><td><span class="td-badge" style="background:${pc}22;color:${pc}">${d.phase}</span></td><td>${d.model}</td><td style="color:var(--win)">${d.active}</td></tr>`;
-  }).join('');
-  setHTML('domain-tbody', tbody || '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">No data</td></tr>');
-}
-
-// ═══════════════════════════════════
-// FILTERS & ACTIONS
-// ═══════════════════════════════════
-function filterAll(el) {
-  document.querySelectorAll('#page-totalads .fb-tag[data-f]').forEach(t=>t.classList.remove('on'));
-  el.classList.add('on');
-  currentPhaseFilter = 'all';
-  currentQuickFilter = null;
-  renderGrid('total-grid', getSortedFiltered());
-  syncSidebarPhaseState();
-}
-function filterPhase(el) {
-  document.querySelectorAll('#page-totalads .fb-tag[data-f]').forEach(t=>t.classList.remove('on'));
-  el.classList.add('on');
-  currentPhaseFilter = el.dataset.f;
-  currentQuickFilter = null;
-  renderGrid('total-grid', getSortedFiltered());
-  syncSidebarPhaseState();
-}
-
-function sbFilterPhase(phase, el) {
-  currentPhaseFilter = phase;
-  currentQuickFilter = null;
-  navToPage('totalads');
-  document.querySelectorAll('.sb-item[data-phase]').forEach(i=>i.classList.remove('on'));
-  el.classList.add('on');
-  const barTag = phase==='all' ? document.querySelector('#page-totalads .fb-tag[data-f="all"]') : document.querySelector(`#page-totalads .fb-tag[data-f="${phase}"]`);
-  document.querySelectorAll('#page-totalads .fb-tag[data-f]').forEach(t=>t.classList.remove('on'));
-  if(barTag) barTag.classList.add('on');
-  renderGrid('total-grid', getSortedFiltered());
-}
-
-function sbFilterModel(model, el) {
-  currentModelFilter = model;
-  navToPage('totalads');
-  document.querySelectorAll('.sb-item[data-model]').forEach(i=>i.classList.remove('on'));
-  el.classList.add('on');
-  renderGrid('total-grid', getSortedFiltered());
-}
-
-function syncSidebarPhaseState() {
-  document.querySelectorAll('.sb-item[data-phase]').forEach(i=>{
-    i.classList.toggle('on', i.dataset.phase === currentPhaseFilter);
-  });
-}
-
-function navToPage(page) {
-  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('on'));
-  const tab = document.querySelector(`.sb-item[data-page="${page}"]`);
-  if(tab) tab.classList.add('on');
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
-  const pageEl = document.getElementById('page-'+page);
-  if(pageEl) pageEl.classList.add('on');
-  document.getElementById('pageTitle').textContent = pageTitles[page]||page;
-}
-function filterQuick(el, key) {
-  const wasOn = el.classList.contains('on');
-  document.querySelectorAll('#page-totalads .fb-tag[data-f], #page-totalads .fb-tag[data-f="active"], #page-totalads .fb-tag[data-f="shopify"]').forEach(t=>t.classList.remove('on'));
-  if(!wasOn) { el.classList.add('on'); currentQuickFilter = key; currentPhaseFilter = 'all'; }
-  else { currentQuickFilter = null; document.querySelector('#page-totalads .fb-tag[data-f="all"]')?.classList.add('on'); }
-  renderGrid('total-grid', getSortedFiltered());
-}
-
-function filterNiche(el) {
-  document.querySelectorAll('#page-totalads .fb-tag[data-niche]').forEach(t=>t.classList.remove('on'));
-  el.classList.add('on');
-  currentNicheFilter = el.dataset.niche;
-  renderGrid('total-grid', getSortedFiltered());
-}
-
-function filterAge(el) {
-  document.querySelectorAll('#page-totalads .fb-tag[data-age]').forEach(t=>t.classList.remove('on'));
-  el.classList.add('on');
-  currentAgeRangeFilter = el.dataset.age;
-  renderGrid('total-grid', getSortedFiltered());
-}
-
-function filterCreatives(el) {
-  document.querySelectorAll('#page-totalads .fb-tag[data-cr]').forEach(t=>t.classList.remove('on'));
-  el.classList.add('on');
-  currentCreativesFilter = el.dataset.cr;
-  renderGrid('total-grid', getSortedFiltered());
-}
-function filterHot(phase) {
-  const f = phase==='POD' ? ads.filter(a=>a.model==='POD') : ads.filter(a=>a.phase===phase);
-  document.getElementById('hp-grid-title').textContent = phase + ' Ads';
-  renderGrid('hot-grid', f);
-}
-function sortAds(by) { currentSort=by; renderGrid('total-grid', getSortedFiltered()); toast(`Sorted by ${by}`,'ok'); }
-function setGridMode(mode, btn) {
-  gridMode=mode;
-  document.querySelectorAll('#page-gridview .gc-btn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  renderGrid('gv-grid', ads, mode);
-}
-
-function toggleSelect(id) {
-  if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
-  document.getElementById('sel-count').textContent = `${selectedIds.size} selected`;
-  renderGrid('select-grid', ads, 'normal', true);
-}
-function selectAll() { ads.forEach(a=>selectedIds.add(a.id)); document.getElementById('sel-count').textContent=`${selectedIds.size} selected`; renderGrid('select-grid',ads,'normal',true); }
-function deselectAll() { selectedIds.clear(); document.getElementById('sel-count').textContent='0 selected'; renderGrid('select-grid',ads,'normal',true); }
-function exportSelected() { const sel=ads.filter(a=>selectedIds.has(a.id)); if(!sel.length){toast('Select some ads first!','err');return;} exportData(sel,'csv'); }
-async function deleteSelected() {
-  if(!selectedIds.size){toast('Select some ads first!','err');return;}
-  const idsArr = [...selectedIds];
-  const realIds = idsArr.filter(id => !String(id).startsWith('demo_'));
-  if(realIds.length) {
-    try {
-      const r = await fetch('/api/ads/db', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
-        body: JSON.stringify({ ids: realIds })
-      });
-      if(!r.ok) throw new Error('Delete failed');
-    } catch(e) { toast('Server delete failed, removing locally','err'); }
-  }
-  ads=ads.filter(a=>!selectedIds.has(a.id));
-  selectedIds.clear();
-  updateAll();
-  toast('Deleted!','ok');
-}
-
-async function deleteOneAd(id) {
-  if(!confirm('Delete this ad?')) return;
-  if(!String(id).startsWith('demo_')) {
-    try {
-      const r = await fetch('/api/ads/db/' + encodeURIComponent(id), {
-        method: 'DELETE',
-        headers: { 'Authorization': 'Bearer ' + getAuthToken() }
-      });
-      if(!r.ok) throw new Error('Delete failed');
-    } catch(e) { toast('Server delete failed, removing locally','err'); }
-  }
-  ads = ads.filter(a => a.id !== id);
-  favs.delete(id);
-  selectedIds.delete(id);
-  updateAll();
-  toast('Ad deleted','ok');
-}
-
-// ═══════════════════════════════════
-// QUALITY FILTER (Hide 18+, romantic only)
+// QUALITY FILTER
 // ═══════════════════════════════════
 function isQualityAd(ad) {
-  return true; // Show all ads - filter disabled
+  return true; // Show all ads
 }
 
 // ═══════════════════════════════════
-// SESSION ID MANAGEMENT
+// LOAD ADS FROM DATABASE
 // ═══════════════════════════════════
-function getSessionId() {
-  let sessionId = localStorage.getItem('sessionId');
-  if (!sessionId) {
-    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('sessionId', sessionId);
-  }
-  return sessionId;
-}
-
-// ═══════════════════════════════════
-// FAVORITES (API-BASED PERSISTENCE)
-// ═══════════════════════════════════
-async function toggleFav(id, btn) {
-  try {
-    const sessionId = getSessionId();
-
-    const response = await fetch(`/api/favorites/toggle/${id}`, {
-      method: 'POST',
-      headers: {
-        'x-session-id': sessionId,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.action === 'removed') {
-      favs.delete(id);
-      if (btn) btn.textContent = '☆';
-      toast('Removed from favorites', 'ok');
-    } else if (data.action === 'added') {
-      favs.add(id);
-      if (btn) btn.textContent = '⭐';
-      toast('Added to favorites ⭐', 'ok');
-    }
-
-    setTxt('sb-fav', favs.size);
-    const favAds = ads.filter(a => favs.has(a.id));
-    renderGrid('fav-grid', favAds);
-    renderGrid('total-grid', getSortedFiltered());
-  } catch (err) {
-    console.error('Favorite error:', err);
-    toast('Failed to save favorite: ' + err.message, 'error');
-  }
-}
-
-function globalSearchFn() {
-  const q = document.getElementById('globalSearch').value.toLowerCase();
-  const filtered = !q ? ads : ads.filter(a=>(a.pageName+' '+a.adText+' '+a.landingUrl+' '+a.model+' '+a.phase).toLowerCase().includes(q));
-  renderGrid('dash-grid', filtered.slice(0,8));
-}
-
-// ═══════════════════════════════════
-// MODAL
-// ═══════════════════════════════════
-let modalList = [];
-let modalIndex = -1;
-
-function getActiveList() {
-  const activeEl = document.querySelector('.page.on');
-  const pid = activeEl ? activeEl.id : '';
-  switch(pid) {
-    case 'page-dashboard': return ads.slice(0,8);
-    case 'page-search': return ads.slice(0,12);
-    case 'page-totalads': return getSortedFiltered();
-    case 'page-hotpicks': return ads.filter(a=>['HOT','Legend','Cash Cow','Scaling','Winning'].includes(a.phase));
-    case 'page-archive': return ads.filter(a=>!a.isActive);
-    case 'page-favorites': return ads.filter(a=>favs.has(a.id));
-    case 'page-dupes': return ads.filter(a=>(a.duplicateCount||1)>1);
-    case 'page-gridview': return ads;
-    case 'page-listview': return ads;
-    case 'page-select': return ads;
-    default: return ads;
-  }
-}
-
-function openMod(id) {
-  modalList = getActiveList();
-  modalIndex = modalList.findIndex(x=>x.id===id);
-  if(modalIndex < 0) { modalList = ads; modalIndex = ads.findIndex(x=>x.id===id); }
-  if(modalIndex < 0) return;
-  renderModalContent();
-  document.getElementById('modBg').classList.add('show');
-}
-
-function modalNav(dir) {
-  const newIndex = modalIndex + dir;
-  if(newIndex < 0 || newIndex >= modalList.length) return;
-  modalIndex = newIndex;
-  renderModalContent();
-}
-
-function renderModalTags(id) {
-  const el = document.getElementById('adv-tags-container');
-  if(!el) return;
-  const active = getTagsFor(id);
-  const activeHTML = active.length
-    ? `<div class="adv-tags-active">${active.map(t=>`<div class="adv-tag-chip">${t}<span onclick="removeTagFrom('${id}','${t.replace(/'/g,"\\'")}')">✕</span></div>`).join('')}</div>`
-    : '';
-  const suggestHTML = `<div class="adv-tags-suggest">${SUGGESTED_TAGS.filter(t=>!active.includes(t)).map(t=>`<div class="adv-tag-sug" onclick="addTagTo('${id}','${t}')">${t}</div>`).join('')}</div>`;
-  el.innerHTML = activeHTML + suggestHTML;
-}
-
-function renderModalContent() {
-  const a = modalList[modalIndex];
-  if(!a) return;
-  const pc = PHASE_COLORS[a.phase]||'#475569';
-  const initial = (a.pageName||'?').trim().charAt(0).toUpperCase() || '?';
-  const gradColors = ['#3b82f6,#1e40af','#ec4899,#9d174d','#06b6d4,#0e7490','#f59e0b,#b45309','#8b5cf6,#5b21b6','#22c55e,#15803d','#f97316,#c2410c'];
-  const gradIdx = (initial.charCodeAt(0) || 0) % gradColors.length;
-  const isFav = favs.has(a.id);
-  const imgHTML = a.thumbnailUrl
-    ? `<img src="${a.thumbnailUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="adv-left-ph" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:linear-gradient(135deg,${gradColors[gradIdx]})">${initial}</div>`
-    : `<div class="adv-left-ph" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,${gradColors[gradIdx]})">${initial}</div>`;
-
-  const platformBadge = a.isShopify ? '🛍 Shopify' : 'Facebook';
-  const savedDate = a.startDate || '—';
-  const lastSeen = a.lastSeen || a.collectedAt || a.startDate || '—';
-  const ctaHTML = a.landingUrl ? `<a href="https://${a.landingUrl}" target="_blank" style="color:var(--acc);text-decoration:none;font-weight:700">shop now ↗</a>` : '—';
-
-  document.getElementById('modBody').innerHTML = `
-    <div class="adv-body">
-      <div class="adv-left">
-        <div class="adv-nav prev ${modalIndex<=0?'dis':''}" onclick="modalNav(-1)">‹</div>
-        ${imgHTML}
-        <div class="adv-nav next ${modalIndex>=modalList.length-1?'dis':''}" onclick="modalNav(1)">›</div>
-      </div>
-      <div class="adv-right">
-        <div class="adv-right-scroll">
-          <div class="adv-title-row">
-            <div class="adv-title">${a.pageName||'Unknown Page'}</div>
-            <div class="m-cls" onclick="document.getElementById('modBg').classList.remove('show')">✕</div>
-          </div>
-          <div class="adv-badges">
-            <span class="adv-badge" style="background:${pc}22;color:${pc};border-color:${pc}44">${a.phase}</span>
-            <span class="adv-badge">${a.model} ✏️</span>
-            <span class="adv-badge">${platformBadge}</span>
-            ${(a.duplicateCount||1)>=5?'<span class="adv-badge" style="color:var(--hot);border-color:rgba(239,68,68,.3)">🔥 Competitor Validated</span>':''}
-          </div>
-          <div class="adv-stats">
-            <div class="adv-stat-cell"><div class="adv-stat-key">Score</div><div class="adv-stat-val">${a.score||0} / 100</div></div>
-            <div class="adv-stat-cell"><div class="adv-stat-key">Days Running</div><div class="adv-stat-val">${a.runningDays||0}d</div></div>
-            <div class="adv-stat-cell"><div class="adv-stat-key">Status</div><div class="adv-stat-val" style="color:${a.isActive?'var(--win)':'var(--hot)'}">${a.isActive?'● Active':'○ Inactive'}</div></div>
-            <div class="adv-stat-cell"><div class="adv-stat-key">Phase</div><div class="adv-stat-val">${a.phase}</div></div>
-            <div class="adv-stat-cell"><div class="adv-stat-key">Model</div><div class="adv-stat-val">${a.model}</div></div>
-            <div class="adv-stat-cell"><div class="adv-stat-key">Saved</div><div class="adv-stat-val">${savedDate}</div></div>
-            <div class="adv-stat-cell"><div class="adv-stat-key">Last Seen</div><div class="adv-stat-val">${lastSeen}</div></div>
-            <div class="adv-stat-cell"><div class="adv-stat-key">CTA</div><div class="adv-stat-val">${ctaHTML}</div></div>
-          </div>
-          ${a.landingUrl ? `<div class="adv-url" onclick="window.open('https://${a.landingUrl}','_blank')">🌐 ${a.landingUrl}</div>` : ''}
-          <div class="adv-section-title">Tags</div>
-          <div class="adv-tag-input-row">
-            <input type="text" id="adv-tag-input" placeholder="Add tag (e.g. firefighter, pets, fitness...)" onkeydown="if(event.key==='Enter'){addTagTo('${a.id}',this.value);this.value='';}">
-            <button class="adv-tag-add" onclick="const i=document.getElementById('adv-tag-input');addTagTo('${a.id}',i.value);i.value='';">+ Add</button>
-          </div>
-          <div id="adv-tags-container"></div>
-          <div class="adv-section-title">Ad Copy</div>
-          <div class="adv-adcopy">${a.adText||'N/A'}</div>
-        </div>
-        <div class="adv-footer">
-          ${a.landingUrl?`<button class="adv-btn prim" onclick="window.open('https://${a.landingUrl}','_blank')">Product Page<span class="adv-counter">${modalIndex+1} / ${modalList.length}</span></button>`:`<button class="adv-btn" disabled>No Page<span class="adv-counter">${modalIndex+1} / ${modalList.length}</span></button>`}
-          <button class="adv-btn" onclick="showAllAdsForPage('${(a.pageName||'').replace(/'/g,"\\'")}')">All Ads</button>
-          <button class="adv-btn" onclick="event.stopPropagation();toggleFav('${a.id}',null);toast('${isFav?'Removed':'Added'} to favorites')" style="color:var(--win)">⭐ ${isFav?'Unfavorite':'Favorite'}</button>
-          <button class="adv-btn" onclick="openDesignRecipeModal('${a.id}')">📋 View Recipe</button>
-          <button class="adv-btn block" onclick="blockAd('${a.id}')">Block</button>
-          <button class="adv-btn danger" onclick="document.getElementById('modBg').classList.remove('show');deleteOneAd('${a.id}')">Delete</button>
-          <button class="adv-btn" onclick="document.getElementById('modBg').classList.remove('show')">← Back</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.getElementById('modTitle').style.display = 'none';
-  document.querySelector('#modBg .modal').classList.add('modal-wide');
-  document.querySelector('#modBg .m-hdr').style.display = 'none';
-  renderModalTags(a.id);
-}
-function closeMod(e){
-  if(e.target===document.getElementById('modBg')) {
-    document.getElementById('modBg').classList.remove('show');
-  }
-}
-
-// ═══════════════════════════════════
-// EXPORT
-// ═══════════════════════════════════
-function exportCSV(){exportData(ads,'csv');}
-function exportJSON(){exportData(ads,'json');}
-function exportExcel(){exportData(ads,'csv');toast('Excel: CSV exported (open in Excel)','ok');}
-function exportData(data, fmt) {
-  if(!data.length){toast('No ads to export!','err');return;}
-  if(fmt==='json'){dl(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'adradar_export.json');}
-  else{
-    const h=['ID','Page','Phase','Model','Active','Start','Days','Score','Confidence','Type','URL','Shopify','Impressions','Countries','Text'];
-    const rows=data.map(a=>[a.id,a.pageName,a.phase,a.model,a.isActive,a.startDate,a.runningDays,a.score,a.confidence+'%',a.creativeType,a.landingUrl,a.isShopify,a.impressions,a.countries,`"${(a.adText||'').replace(/"/g,'""')}"`]);
-    dl(new Blob([[h.join(','),...rows.map(r=>r.join(','))].join('\n')],{type:'text/csv'}),'adradar_export.csv');
-  }
-  toast(`${fmt.toUpperCase()} exported!`,'ok');
-}
-function dl(blob,name){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
-
-async function clearAll(){
-  if(!confirm('Clear all ads?'))return;
-  const realIds = ads.filter(a=>!String(a.id).startsWith('demo_')).map(a=>a.id);
-  if(realIds.length) {
-    try {
-      await fetch('/api/ads/db', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
-        body: JSON.stringify({ ids: realIds })
-      });
-    } catch(e) {}
-  }
-  ads=[];favs.clear();selectedIds.clear();updateAll();toast('Cleared!','ok');
-}
-
-// ═══════════════════════════════════
-// NAVIGATION
-// ═══════════════════════════════════
-const pageTitles = {dashboard:'Dashboard',search:'Search',totalads:'Total Ads',hotpicks:'Hot Picks',domain:'Domain',archive:'Archive',favorites:'Favorites',select:'Select',backup:'Backup',dupes:'Dupes',batches:'Batches',gridview:'Grid View',listview:'List View',profile:'Profile'};
-function nav(el) {
-  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('on'));
-  el.classList.add('on');
-  const page = el.dataset.page;
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
-  document.getElementById('page-'+page)?.classList.add('on');
-  document.getElementById('pageTitle').textContent = pageTitles[page]||page;
-  updateAll();
-}
-
-// ═══════════════════════════════════
-// UTILS
-// ═══════════════════════════════════
-function setApiSt(t,txt){const d=document.getElementById('api-dot');const l=document.getElementById('api-txt');d.style.background=t==='ok'?'var(--win)':t==='err'?'var(--hot)':'var(--cas)';l.textContent=txt;l.style.color=t==='ok'?'var(--win)':t==='err'?'var(--hot)':'var(--t3)';}
-function setTxt(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
-function setHTML(id,v){const el=document.getElementById(id);if(el)el.innerHTML=v;}
-let tT; function toast(msg,type){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+(type||'');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),3000);}
-
-// Init
-updateAll();
-  async function toggleFav(id, btn) {
-  try {
-    const sessionId = getSessionId();
-    const response = await fetch(`/api/favorites/toggle/${id}`, {
-      method: 'POST',
-      headers: {
-        'x-session-id': sessionId,
-        'Content-Type': 'application/json'
-      }
-    });
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-    const data = await response.json();
-    if (data.action === 'removed') {
-      favs.delete(id);
-      if (btn) btn.textContent = '☆';
-      toast('Removed from favorites', 'ok');
-    } else if (data.action === 'added') {
-      favs.add(id);
-      if (btn) btn.textContent = '⭐';
-      toast('Added to favorites ⭐', 'ok');
-    }
-    setTxt('sb-fav', favs.size);
-    const favAds = ads.filter(a => favs.has(a.id));
-    renderGrid('fav-grid', favAds);
-    renderGrid('total-grid', getSortedFiltered());
-  } catch (err) {
-    console.error('Favorite error:', err);
-    toast('Failed to save favorite: ' + err.message, 'error');
-  }
-  // ═══════════════════════════════════════════════════════════════════════════
-// DESIGN RECIPE CARD SYSTEM — View + Copy (6 options)
-// ═══════════════════════════════════════════════════════════════════════════
-
-class DesignRecipe {
-  constructor(adId, adName) {
-    this.id = `recipe_${adId}_${Date.now()}`;
-    this.adId = adId;
-    this.adName = adName;
-    this.fonts = {
-      primary: { name: 'Roboto', weight: 'bold', size: '48px' },
-      secondary: { name: 'Open Sans', weight: 'regular', size: '24px' }
-    };
-    this.colors = {
-      primary: '#FFD700',
-      secondary: '#000000',
-      accent: '#FFFFFF'
-    };
-    this.elements = ['text', 'logo', 'cta_button', 'price_tag'];
-    this.layout = 'image_left_text_right';
-    this.createdBy = 'Plabon';
-    this.createdDate = new Date().toISOString().split('T')[0];
-  }
-  
-  toFormattedText() {
-    return `
-DESIGN RECIPE
-═══════════════════════════════════════════════
-
-AD NAME: ${this.adName}
-
-📝 FONTS:
-  Primary: ${this.fonts.primary.name} ${this.fonts.primary.weight} ${this.fonts.primary.size}
-  Secondary: ${this.fonts.secondary.name} ${this.fonts.secondary.weight} ${this.fonts.secondary.size}
-
-🎨 COLORS:
-  Primary: ${this.colors.primary}
-  Secondary: ${this.colors.secondary}
-  Accent: ${this.colors.accent}
-
-📐 ELEMENTS:
-  ${this.elements.map(e => '• ' + e.toUpperCase()).join('\n  ')}
-
-📍 LAYOUT:
-  ${this.layout.toUpperCase().replace(/_/g, ' ')}
-
-👤 CREATED BY: ${this.createdBy}
-📅 DATE: ${this.createdDate}
-
-═══════════════════════════════════════════════
-    `.trim();
-  }
-  
-  toCSV() {
-    return `recipe_name,font_primary,font_primary_weight,font_size,font_secondary,font_secondary_weight,secondary_size,color_primary,color_secondary,color_accent,elements,layout,created_by,created_date
-${this.adName},"${this.fonts.primary.name}","${this.fonts.primary.weight}","${this.fonts.primary.size}","${this.fonts.secondary.name}","${this.fonts.secondary.weight}","${this.fonts.secondary.size}","${this.colors.primary}","${this.colors.secondary}","${this.colors.accent}","${this.elements.join('|')}","${this.layout}","${this.createdBy}","${this.createdDate}"`;
-  }
-}
-
-function openDesignRecipeModal(adId) {
-  const ad = ads.find(a => a.id === adId);
-  if (!ad) return;
-  
-  const recipe = new DesignRecipe(adId, ad.pageName || 'Design Recipe');
-  window.currentRecipe = recipe;
-  
-  const modalHTML = `
-  <button onclick="document.getElementById('modBg').classList.remove('show')" style="position:absolute;top:10px;right:10px;background:none;border:none;color:#999;font-size:24px;cursor:pointer;z-index:999">✕</button>
-    <div style="padding:20px">
-      <div style="margin-bottom:14px">
-        <h3 style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:12px">📋 Design Recipe</h3>
-        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px;font-size:11px;color:var(--t2);line-height:1.7;font-family:'Space Mono',monospace;max-height:300px;overflow-y:auto;margin-bottom:12px">
-          ${recipe.toFormattedText().replace(/\n/g, '<br>')}
-        </div>
-      </div>
-      
-      <div style="margin-bottom:14px">
-        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">📤 COPY OPTIONS</div>
-        
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-          <button class="tb-btn prim" onclick="copyRecipeToClipboard()" style="padding:8px;font-size:11px">📋 Copy</button>
-          <button class="tb-btn prim" onclick="copyRecipeAsText()" style="padding:8px;font-size:11px">📝 Text</button>
-          <button class="tb-btn" onclick="downloadRecipeTXT()" style="padding:8px;font-size:11px">💾 TXT</button>
-          <button class="tb-btn" onclick="downloadRecipeCSV()" style="padding:8px;font-size:11px">📊 CSV</button>
-          <button class="tb-btn" onclick="generateShareLink()" style="padding:8px;font-size:11px">🔗 Link</button>
-          <button class="tb-btn" onclick="emailRecipeToSelf()" style="padding:8px;font-size:11px">📧 Email</button>
-          <button class="tb-btn" onclick="document.getElementById('modBg').classList.remove('show')" style="padding:8px;font-size:11px;width:100%;margin-top:8px">← Back</button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  document.getElementById('modBody').innerHTML = modalHTML;
-  document.getElementById('modTitle').textContent = 'Design Recipe';
-  document.getElementById('modBg').classList.add('show');
-}
-
-async function copyRecipeToClipboard() {
-  const recipe = window.currentRecipe;
-  if (!recipe) return;
-  
-  try {
-    await navigator.clipboard.writeText(recipe.toFormattedText());
-    toast('✅ Copied to clipboard!', 'ok');
-  } catch(e) {
-    toast('❌ Copy failed', 'err');
-  }
-}
-
-async function copyRecipeAsText() {
-  const recipe = window.currentRecipe;
-  if (!recipe) return;
-  
-  const text = recipe.toFormattedText();
-  
-  const el = document.getElementById('modBody');
-  el.innerHTML = `
-    <div style="padding:20px">
-      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px;font-family:'Space Mono',monospace;font-size:11px;color:var(--tx);line-height:1.7;max-height:400px;overflow-y:auto;margin-bottom:12px;white-space:pre-wrap;word-break:break-word">
-        ${text}
-      </div>
-      <button class="tb-btn prim" onclick="copyRecipeToClipboard()" style="width:100%;padding:10px">📋 Copy Above</button>
-    </div>
-  `;
-}
-
-function downloadRecipeTXT() {
-  const recipe = window.currentRecipe;
-  if (!recipe) return;
-  
-  const text = recipe.toFormattedText();
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${recipe.adName.replace(/\s+/g, '_')}_recipe.txt`;
-  a.click();
-  
-  URL.revokeObjectURL(url);
-  toast('✅ TXT downloaded', 'ok');
-}
-
-function downloadRecipeCSV() {
-  const recipe = window.currentRecipe;
-  if (!recipe) return;
-  
-  const csv = recipe.toCSV();
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${recipe.adName.replace(/\s+/g, '_')}_recipe.csv`;
-  a.click();
-  
-  URL.revokeObjectURL(url);
-  toast('✅ CSV downloaded', 'ok');
-}
-
-function generateShareLink() {
-  const recipe = window.currentRecipe;
-  if (!recipe) return;
-  
-  const recipeId = recipe.id;
-  localStorage.setItem(`recipe_${recipeId}`, JSON.stringify(recipe));
-  
-  const link = `${window.location.origin}?recipe=${recipeId}`;
-  
-  navigator.clipboard.writeText(link);
-  toast(`✅ Share link copied!`, 'ok');
-}
-
-async function emailRecipeToSelf() {
-  const recipe = window.currentRecipe;
-  if (!recipe) return;
-  
-  const userEmail = prompt('Enter your email:');
-  if (!userEmail) return;
-  
-  try {
-    const response = await fetch('/api/email/send-recipe', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + getAuthToken()
-      },
-      body: JSON.stringify({
-        to: userEmail,
-        subject: `Design Recipe: ${recipe.adName}`,
-        content: recipe.toFormattedText()
-      })
-    });
-    
-    if (!response.ok) throw new Error('Email failed');
-    
-    toast(`✅ Email sent to ${userEmail}`, 'ok');
-  } catch(e) {
-    toast('❌ Email failed', 'err');
-  }
-}
-
-// ─── LOAD FAVORITES FROM API ON PAGE LOAD ────────────────────────
-async function loadFavoritesFromAPI() {
-  try {
-    const sessionId = getSessionId();
-
-    const response = await fetch('/api/favorites', {
-      method: 'GET',
-      headers: {
-        'x-session-id': sessionId,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      console.warn('Failed to load favorites from API');
-      return;
-    }
-
-    const data = await response.json();
-    favs.clear();
-    if (data.favorites && Array.isArray(data.favorites)) {
-      data.favorites.forEach(id => favs.add(id));
-    }
-    
-    console.log('✅ Loaded ' + favs.size + ' favorites from database');
-    setTxt('sb-fav', favs.size);
-  } catch (err) {
-    console.error('Failed to load favorites:', err);
-  }
-}
-
-window.addEventListener('load', () => {
-  setTimeout(loadFavoritesFromAPI, 500);
-  setTimeout(loadAdsFromDatabase, 1000);
-});
-
-// ─── LOAD ADS FROM DATABASE ON PAGE LOAD ────────────────────────
 async function loadAdsFromDatabase() {
   try {
-    const response = await fetch('/api/ads/db');
+    const response = await fetch('/api/ads/db', {
+      headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+    });
     
     if (!response.ok) {
-      console.warn('Failed to load ads from database');
+      console.warn('Failed to load ads');
       return;
     }
 
     const data = await response.json();
     
     if (data.ads && Array.isArray(data.ads)) {
-      // Apply quality filter
       ads = data.ads.filter(isQualityAd);
-      console.log('✅ Loaded ' + ads.length + ' quality ads from database (filtered)');
-      
-      // Re-render grids with filtered ads
-      renderGrid('total-grid', getSortedFiltered());
-      renderGrid('fav-grid', ads.filter(a => favs.has(a.id)));
-      
-      // Update sidebar counts
-      setTxt('sb-total', ads.length);
+      console.log('✅ Loaded ' + ads.length + ' ads');
+      updateAll();
     }
   } catch (err) {
-    console.error('Failed to load ads from database:', err);
+    console.error('Load error:', err);
   }
 }
-</script>
+
+// ═══════════════════════════════════
+// RENDER
+// ═══════════════════════════════════
+function renderGrid(list) {
+  const container = document.getElementById('ads-grid');
+  
+  if (!list.length) {
+    container.innerHTML = '<div class="empty">No ads found</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(a => `
+    <div class="ad-card">
+      <div class="ad-img">📄</div>
+      <div class="ad-body">
+        <div class="ad-page">${a.pageName || 'Unknown'}</div>
+        <div class="ad-text">${a.adText || 'No text'}</div>
+        <div class="ad-footer">
+          <button class="ad-btn" onclick="window.open('https://${a.landingUrl}','_blank')">View</button>
+          <button class="ad-btn" onclick="deleteAd('${a.id}')">Delete</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════
+// UPDATE ALL
+// ═══════════════════════════════════
+function updateAll() {
+  const active = ads.filter(a => a.isActive).length;
+  const hot = ads.filter(a => a.phase === 'HOT').length;
+  const pod = ads.filter(a => a.model === 'POD').length;
+
+  document.getElementById('total-count').textContent = ads.length;
+  document.getElementById('active-count').textContent = active;
+  document.getElementById('hot-count').textContent = hot;
+  document.getElementById('pod-count').textContent = pod;
+
+  renderGrid(ads.slice(0, 12));
+}
+
+// ═══════════════════════════════════
+// DELETE AD
+// ═══════════════════════════════════
+async function deleteAd(id) {
+  if (!confirm('Delete this ad?')) return;
+  
+  try {
+    await fetch('/api/ads/db/' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + getAuthToken() }
+    });
+  } catch(e) {}
+  
+  ads = ads.filter(a => a.id !== id);
+  updateAll();
+}
+
+// ═══════════════════════════════════
+// INIT
+// ═══════════════════════════════════
+if (getAuthToken()) {
+  showApp();
+} else {
+  showLogin();
+}
 </body>
 </html>
