@@ -667,7 +667,23 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
 // ═══════════════════════════════════
 // AUTH / LOGIN
 // ═══════════════════════════════════
-function getAuthToken() {
+// ===== LOCALSTORAGE FUNCTIONS =====
+function saveAds(ads) {
+    localStorage.setItem('adradar_ads', JSON.stringify(ads));
+    console.log('✓ Ads saved to storage:', ads.length);
+}
+
+function loadAdsFromStorage() {
+    try {
+        const saved = localStorage.getItem('adradar_ads');
+        return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+        console.error('Load failed:', e);
+        return [];
+    }
+}
+// ===== END LOCALSTORAGE =====
+  function getAuthToken() {
   return sessionStorage.getItem('adradar_token') || '';
 }
 function showApp() {
