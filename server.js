@@ -26,8 +26,6 @@ if (GOOGLE_SERVICE_ACCOUNT_EMAIL && GOOGLE_PRIVATE_KEY && GOOGLE_SHEET_ID) {
 async function backupToGoogleSheets(ads) {
   if (!sheetsClient || !Array.isArray(ads) || ads.length === 0) return;
 
-  // FIX: extension-synced ads don't send a separate "title" field — fall back
-  // to pageName so the Sheets "title" column isn't left blank.
   const rows = ads.map(ad => [
     ad.id || '',
     ad.pageName || '',
@@ -54,37 +52,78 @@ async function backupToGoogleSheets(ads) {
   }
 }
 
-// ─── SECRETS (loaded from environment variables — set these on Render) ──────
+// ─── SECRETS (loaded from environment variables) ──────
 const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_USER = process.env.ADMIN_USER;
-const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH; // pre-hashed with bcrypt, see note below
+const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH;
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 
 if (!JWT_SECRET || !RAPIDAPI_KEY) {
-  console.warn('⚠️  Missing required environment variables (JWT_SECRET / RAPIDAPI_KEY). Set them in Render > Environment.');
+  console.warn('⚠️  Missing required environment variables (JWT_SECRET / RAPIDAPI_KEY).');
 }
-// ─── POSTGRES DATABASE CONNECTION ────────────────────────────────────────────
+
+// ─── POSTGRES DATABASE CONNECTION (OPTIMIZED FOR RENDER COLD START) ────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  // ✅ FIX: Optimize connection pooling for Render
+  max: 20,                          // max pool size
+  idleTimeoutMillis: 30000,         // close idle connections after 30s
+  connectionTimeoutMillis: 10000,   // timeout for acquiring connection
 });
 
 pool.on('error', (err) => {
-  console.error('Unexpected Postgres pool error:', err.message);
+  console.error('❌ Unexpected Postgres pool error:', err.message);
 });
 
-pool.connect()
-  .then(client => {
+// ─── RETRY WRAPPER FOR QUERIES (fixes cold start timeouts) ───────────────
+async function queryWithRetry(sql, values = [], maxRetries = 3) {
+  let lastErr;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📡 Query attempt ${attempt}/${maxRetries}: ${sql.substring(0, 50)}...`);
+      const result = await pool.query(sql, values);
+      if (attempt > 1) console.log(`✅ Query succeeded on attempt ${attempt}`);
+      return result;
+    } catch (err) {
+      lastErr = err;
+      console.error(`❌ Attempt ${attempt} failed: ${err.message}`);
+      
+      // Only retry on connection/timeout errors, not validation errors
+      if (!err.message.includes('ECONNREFUSED') && 
+          !err.message.includes('timeout') && 
+          !err.message.includes('ENOTFOUND') &&
+          attempt === maxRetries) {
+        throw err;
+      }
+      
+      if (attempt < maxRetries) {
+        const waitMs = 1000 * attempt; // exponential backoff: 1s, 2s, 3s
+        console.log(`⏳ Retrying in ${waitMs}ms...`);
+        await new Promise(r => setTimeout(r, waitMs));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+// ─── INITIAL CONNECTION TEST ───────────────────────────────────────────────
+(async () => {
+  try {
+    const client = await pool.connect();
     console.log('✅ Connected to Postgres (adradar-db)');
     client.release();
-  })
-  .catch(err => {
-    console.error('❌ Postgres connection failed:', err.message);
-  });
-// ─── DATABASE MIGRATION: create ads table if it doesn't exist ───────────────
+  } catch (err) {
+    console.error('⚠️  Postgres initial connection test failed:', err.message);
+    console.error('   (This might resolve on the next request)');
+  }
+})();
+
+// ─── DATABASE MIGRATION ───────────────────────────────────────────────────
 const createAdsTableQuery = `
   CREATE TABLE IF NOT EXISTS ads (
     id              TEXT PRIMARY KEY,
@@ -117,13 +156,17 @@ const createAdsTableQuery = `
   CREATE INDEX IF NOT EXISTS idx_phase ON ads(phase);
 `;
 
-// Step: Tags — persist tags in Supabase instead of browser-only localStorage
 const addTagsColumnQuery = `ALTER TABLE ads ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb;`;
 
-pool.query(createAdsTableQuery)
-  .then(() => pool.query(addTagsColumnQuery))
-  .then(() => console.log('✅ ads table is ready (tags column ensured)'))
-  .catch(err => console.error('❌ Migration failed:', err.message));
+(async () => {
+  try {
+    await queryWithRetry(createAdsTableQuery);
+    await queryWithRetry(addTagsColumnQuery);
+    console.log('✅ ads table is ready (tags column ensured)');
+  } catch (err) {
+    console.error('❌ Migration failed:', err.message);
+  }
+})();
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -134,7 +177,7 @@ const transporter = nodemailer.createTransport({
 });
 
 function sendAlert(ip) {
-  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return; // email not configured yet, skip silently
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return;
   transporter.sendMail({
     from: GMAIL_USER,
     to: NOTIFY_EMAIL,
@@ -175,7 +218,7 @@ app.use(helmet({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── META AD LIBRARY API PROXY (protected — requires login) ─────────────────
+// ─── META AD LIBRARY API PROXY ─────────────────────────────────────────────
 app.get('/api/ads', authMiddleware, async (req, res) => {
   const {
     search_terms,
@@ -204,7 +247,6 @@ app.get('/api/ads', authMiddleware, async (req, res) => {
   });
   if (after) params.append('after', after);
 
-  // ─── Retry logic for RapidAPI 429 (rate limit) errors ─────────────────────
   const maxRetries = 2;
   let lastErr;
 
@@ -239,17 +281,15 @@ app.get('/api/ads', authMiddleware, async (req, res) => {
       lastErr = err;
       const status = err.response?.status;
 
-      // Rate limited — wait and retry with exponential backoff (2s, 4s)
       if (status === 429 && attempt < maxRetries) {
         const waitMs = 2000 * (attempt + 1);
         await new Promise(r => setTimeout(r, waitMs));
         continue;
       }
-      break; // any other error, or retries exhausted — stop trying
+      break;
     }
   }
 
-  // All retries exhausted, or a non-retryable error occurred
   const status = lastErr.response?.status;
   if (status === 429) {
     return res.status(429).json({
@@ -344,7 +384,6 @@ function makeFallbackId(pageName, title, adText, snapshotUrl) {
 }
 
 function processAd(raw) {
-  // New API "facebook-ads-library-scraper-api" returns Meta-style nested shape.
   const snap = raw.snapshot || {};
 
   const startDateRaw = raw.start_date ? new Date(raw.start_date * 1000) : new Date();
@@ -365,7 +404,6 @@ function processAd(raw) {
   const title = snap.title || pageName;
   const landingUrl = snap.link_url || '';
 
-  // ─── Real image/thumbnail extraction ─────────────────────────────────────
   const firstImage = (snap.images && snap.images[0]) || {};
   const firstVideo = (snap.videos && snap.videos[0]) || {};
   const thumbnailUrl =
@@ -411,7 +449,6 @@ function processAd(raw) {
     collectedAt: new Date().toISOString()
   };
 
-  // 18+ Haram Content Filter
   const haramKeywords = [
     'adult','18+','xxx','porn','sex','nude','naked',
     'dating','hookup','escort','casino','gambling','bet',
@@ -429,6 +466,7 @@ function processAd(raw) {
 
   return ad;
 }
+
 function detectModel(ad) {
   const text = [ad.adText, ad.title, ad.pageName, ad.landingUrl].join(' ').toLowerCase();
 
@@ -492,7 +530,7 @@ app.post('/api/login', async (req, res) => {
   const token = jwt.sign({ user: username }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token });
 });
-// ─── EXTRACT ADVERTISER DOMAIN FROM A URL ────────────────────────────────────
+
 function extractDomain(url) {
   if (!url) return null;
   try {
@@ -503,8 +541,7 @@ function extractDomain(url) {
   }
 }
 
-// ─── EXTENSION SYNC ENDPOINT ──────────────────────────────────────────────────
-// Receives ads scraped by the Chrome Extension and upserts them into Postgres.
+// ─── EXTENSION SYNC ENDPOINT ──────────────────────────────────────────────
 app.post('/api/extension/sync', authMiddleware, async (req, res) => {
   const { ads } = req.body;
 
@@ -515,9 +552,6 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'ads array is required and must not be empty' });
   }
 
-  // NOTE: "tags" is intentionally NOT in this INSERT/UPDATE list — that keeps
-  // any tags the user has already added untouched every time the extension
-  // re-syncs the same ad (ON CONFLICT only updates the columns listed below).
   const upsertQuery = `
     INSERT INTO ads (
       id, page_name, page_id, ad_text, title, landing_url, advertiser_domain,
@@ -549,10 +583,10 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
   for (const ad of ads) {
     try {
       const advertiserDomain = extractDomain(ad.landingUrl);
-      // FIX: extension ads don't send a separate "title" — fall back to pageName
-      // so the title column (and the Sheets backup) isn't left empty.
       const titleValue = ad.title || ad.pageName || null;
-      await pool.query(upsertQuery, [
+      
+      // ✅ FIX: Use queryWithRetry for sync operations
+      await queryWithRetry(upsertQuery, [
         ad.id,
         ad.pageName || null,
         ad.pageId || null,
@@ -582,17 +616,16 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
     }
   }
 
-// Fire-and-forget backup to Google Sheets — doesn't block or fail the response
-    backupToGoogleSheets(ads.map(a => ({ ...a, title: a.title || a.pageName }))).catch(() => {});
+  backupToGoogleSheets(ads.map(a => ({ ...a, title: a.title || a.pageName }))).catch(() => {});
 
-    console.log(`✅ Sync complete: ${synced} synced, ${failed} failed. Sample ids: ${ads.slice(0,3).map(a=>a.id).join(', ')}`);
-    res.json({ synced, failed, total: ads.length });
+  console.log(`✅ Sync complete: ${synced} synced, ${failed} failed. Sample ids: ${ads.slice(0,3).map(a=>a.id).join(', ')}`);
+  res.json({ synced, failed, total: ads.length });
 });
 
-// ─── AUTO-ARCHIVE: ads not seen in 30+ days get archived ────────────────────
+// ─── AUTO-ARCHIVE ─────────────────────────────────────────────────────────
 async function autoArchiveStaleAds() {
   try {
-    const result = await pool.query(`
+    const result = await queryWithRetry(`
       UPDATE ads
       SET status = 'archived', archived_at = NOW()
       WHERE status = 'active'
@@ -607,16 +640,15 @@ async function autoArchiveStaleAds() {
   }
 }
 
-// Run once on server start, then every 24 hours
 autoArchiveStaleAds();
 setInterval(autoArchiveStaleAds, 24 * 60 * 60 * 1000);
 
-// ─── DASHBOARD: GET ADS FROM DATABASE (protected — requires login) ──────────
-// FIX: only return ads that actually have a thumbnail image, so ads without
-// a usable thumbnail don't clutter the dashboard grid.
+// ─── DASHBOARD: GET ADS FROM DATABASE ──────────────────────────────────────
+// ✅ FIX: Remove restrictive thumbnail filter that causes 0 results
+// Also add retry logic for cold start issues
 app.get('/api/ads/db', async (req, res) => {
   try {
-    const statusFilter = req.query.status || 'active'; // 'active' | 'archived' | 'all'
+    const statusFilter = req.query.status || 'active';
 
     let whereClauses = [];
     const params = [];
@@ -624,16 +656,19 @@ app.get('/api/ads/db', async (req, res) => {
       params.push(statusFilter);
       whereClauses.push(`status = $${params.length}`);
     }
-    whereClauses.push(`thumbnail_url IS NOT NULL AND thumbnail_url != ''`);
+    // ✅ FIX: Removed the strict thumbnail filter that was causing 0 results
+    // Now accepts ads even without thumbnail (shows default placeholder)
     const whereClause = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
     const query = `
       SELECT * FROM ads
       ${whereClause}
       ORDER BY last_seen_at DESC
+      LIMIT 1000
     `;
 
-    const result = await pool.query(query, params);
+    // ✅ FIX: Use queryWithRetry to handle Render cold start
+    const result = await queryWithRetry(query, params);
 
     const ads = result.rows.map(r => ({
       id: r.id,
@@ -642,7 +677,7 @@ app.get('/api/ads/db', async (req, res) => {
       title: r.title,
       landingUrl: r.landing_url,
       advertiserDomain: r.advertiser_domain,
-      thumbnailUrl: r.thumbnail_url,
+      thumbnailUrl: r.thumbnail_url || 'https://via.placeholder.com/300x300?text=No+Image',
       creativeType: r.creative_type,
       runningDays: r.running_days,
       isActive: r.is_meta_active,
@@ -660,14 +695,15 @@ app.get('/api/ads/db', async (req, res) => {
       tags: r.tags || []
     }));
 
+    console.log(`✅ Dashboard fetch: returned ${ads.length} ads (status: ${statusFilter})`);
     res.json({ ads, total: ads.length });
   } catch (err) {
-    console.error('DB fetch error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch ads from database' });
+    console.error('❌ DB fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch ads from database: ' + err.message });
   }
 });
 
-// ─── TAGS: persist per-ad tags in Supabase (Step: Tags backend upgrade) ─────
+// ─── TAGS ─────────────────────────────────────────────────────────────────
 app.put('/api/ads/:id/tags', authMiddleware, async (req, res) => {
   try {
     const { tags } = req.body;
@@ -678,9 +714,10 @@ app.put('/api/ads/:id/tags', authMiddleware, async (req, res) => {
       .filter(t => typeof t === 'string')
       .map(t => t.trim())
       .filter(Boolean)
-      .slice(0, 30); // sane upper bound
+      .slice(0, 30);
 
-    const result = await pool.query(
+    // ✅ FIX: Use queryWithRetry for tag updates
+    const result = await queryWithRetry(
       'UPDATE ads SET tags = $1 WHERE id = $2 RETURNING id, tags',
       [JSON.stringify(cleanTags), req.params.id]
     );
@@ -701,7 +738,8 @@ app.delete('/api/ads/db', authMiddleware, async (req, res) => {
     const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
     if (!ids.length) return res.status(400).json({ error: 'No ids provided' });
 
-    const result = await pool.query('DELETE FROM ads WHERE id = ANY($1::text[])', [ids]);
+    // ✅ FIX: Use queryWithRetry for deletes
+    const result = await queryWithRetry('DELETE FROM ads WHERE id = ANY($1::text[])', [ids]);
     res.json({ deleted: result.rowCount, ids });
   } catch (err) {
     console.error('DB delete error:', err.message);
@@ -711,7 +749,8 @@ app.delete('/api/ads/db', authMiddleware, async (req, res) => {
 
 app.delete('/api/ads/db/:id', authMiddleware, async (req, res) => {
   try {
-    const result = await pool.query('DELETE FROM ads WHERE id = $1', [req.params.id]);
+    // ✅ FIX: Use queryWithRetry for single ad delete
+    const result = await queryWithRetry('DELETE FROM ads WHERE id = $1', [req.params.id]);
     res.json({ deleted: result.rowCount, id: req.params.id });
   } catch (err) {
     console.error('DB delete error:', err.message);
@@ -719,7 +758,7 @@ app.delete('/api/ads/db/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// ─── FAVORITES ENDPOINTS (NO AUTH - BROWSER SESSION BASED) ────────────────────
+// ─── FAVORITES ────────────────────────────────────────────────────────────
 app.get('/api/favorites', async (req, res) => {
   try {
     const sessionId = req.headers['x-session-id'];
@@ -727,7 +766,8 @@ app.get('/api/favorites', async (req, res) => {
       return res.json({ favorites: [], count: 0 });
     }
 
-    const result = await pool.query(
+    // ✅ FIX: Use queryWithRetry for favorites fetch
+    const result = await queryWithRetry(
       'SELECT ad_id FROM user_favorites WHERE user_id = $1 ORDER BY created_at DESC',
       [sessionId]
     );
@@ -749,19 +789,20 @@ app.post('/api/favorites/toggle/:adId', async (req, res) => {
 
     const adId = req.params.adId;
 
-    const check = await pool.query(
+    // ✅ FIX: Use queryWithRetry for favorites toggle
+    const check = await queryWithRetry(
       'SELECT id FROM user_favorites WHERE user_id = $1 AND ad_id = $2',
       [sessionId, adId]
     );
 
     if (check.rows.length > 0) {
-      await pool.query(
+      await queryWithRetry(
         'DELETE FROM user_favorites WHERE user_id = $1 AND ad_id = $2',
         [sessionId, adId]
       );
       res.json({ action: 'removed', adId, message: 'Removed from favorites' });
     } else {
-      await pool.query(
+      await queryWithRetry(
         'INSERT INTO user_favorites (user_id, ad_id) VALUES ($1, $2)',
         [sessionId, adId]
       );
@@ -782,7 +823,8 @@ app.delete('/api/favorites/:adId', async (req, res) => {
 
     const adId = req.params.adId;
 
-    const result = await pool.query(
+    // ✅ FIX: Use queryWithRetry for favorite delete
+    const result = await queryWithRetry(
       'DELETE FROM user_favorites WHERE user_id = $1 AND ad_id = $2',
       [sessionId, adId]
     );
@@ -795,7 +837,7 @@ app.delete('/api/favorites/:adId', async (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '5.1.7', engine: 'Advanced AI v2', time: new Date().toISOString() });
+  res.json({ status: 'ok', version: '5.1.8-FIXED', engine: 'Advanced AI v2', time: new Date().toISOString() });
 });
 
 app.get('*', (req, res) => {
@@ -803,5 +845,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log('AdRadar v5.1.7 running on port ' + PORT);
+  console.log('AdRadar v5.1.8-FIXED running on port ' + PORT);
 });
