@@ -664,13 +664,6 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
 </div><!-- /main -->
 
 <script>
-  
-// Global state for infinite scroll
-let allAds = [];
-let currentOffset = 0;
-let isLoadingMore = false;
-let hasMoreAds = true;
-const adsPerPage = 50;
 // ═══════════════════════════════════
 // AUTH / LOGIN
 // ═══════════════════════════════════
@@ -960,112 +953,22 @@ function loadDemo() {
   toast(`${ads.length} demo ads loaded!`,'ok');
 }
 
-async function loadFromDB(reset = false) {
-  if (isLoadingMore && !reset) return;
-  
-  if (reset) {
-    allAds = [];
-    currentOffset = 0;
-    hasMoreAds = true;
-  }
-
-  isLoadingMore = true;
-  showLoadingIndicator(true);
-
+async function loadFromDB(silent) {
+  if(!silent) setApiSt('connecting','Loading synced ads...');
   try {
-    const token = getAuthToken();
-    const response = await fetch(`/api/ads/db?status=active&offset=${currentOffset}&limit=${adsPerPage}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    if (!response.ok) throw new Error('Failed to load ads');
-
-    const data = await response.json();
-    
-    if (data.ads && Array.isArray(data.ads)) {
-      const qualityAds = data.ads.filter(isQualityAd);
-      allAds = allAds.concat(qualityAds);
-      
-      hasMoreAds = data.hasMore;
-      currentOffset = data.nextOffset;
-      
-      console.log(`✅ Loaded ${qualityAds.length} quality ads from database. Total: ${allAds.length}`);
-
-      renderGrid('total-grid', allAds);
-      setTxt('sb-total', allAds.length);
-    }
-  } catch (err) {
-    console.error('Failed to load ads from database:', err);
+    const url = `${window.location.origin}/api/ads/db?status=all&limit=200`;
+    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getAuthToken() } });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    const newAds = dedup(d.ads||[]);
+    ads = [...ads, ...newAds];
+    setApiSt('ok',`Connected · ${ads.length} ads`);
+    updateAll();
+    if(!silent) toast(`${d.ads.length} synced ads loaded!`,'ok');
+    else if(newAds.length) toast(`${newAds.length} new ad${newAds.length>1?'s':''} synced`,'ok');
+  } catch(e) {
+    if(!silent) { setApiSt('err','Error'); toast(e.message.slice(0,60),'err'); }
   }
-
-  isLoadingMore = false;
-  showLoadingIndicator(false);
-}
-
-async function loadMoreAds() {
-  if (!hasMoreAds || isLoadingMore) return;
-  
-  isLoadingMore = true;
-  showLoadingIndicator(true);
-
-  try {
-    const token = getAuthToken();
-    const response = await fetch(`/api/ads/db?status=active&offset=${currentOffset}&limit=${adsPerPage}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    if (!response.ok) throw new Error('Failed to load more ads');
-
-    const data = await response.json();
-    
-    if (data.ads && Array.isArray(data.ads)) {
-      const qualityAds = data.ads.filter(isQualityAd);
-      allAds = allAds.concat(qualityAds);
-      
-      hasMoreAds = data.hasMore;
-      currentOffset = data.nextOffset;
-      
-      console.log(`✅ Loaded more ads. Total: ${allAds.length}`);
-      renderGrid('total-grid', allAds);
-      setTxt('sb-total', allAds.length);
-    }
-  } catch (err) {
-    console.error('Failed to load more ads:', err);
-  }
-
-  isLoadingMore = false;
-  showLoadingIndicator(false);
-}
-
-function showLoadingIndicator(show) {
-  let loader = document.getElementById('infinite-scroll-loader');
-  if (!loader) {
-    loader = document.createElement('div');
-    loader.id = 'infinite-scroll-loader';
-    loader.style.cssText = `text-align: center; padding: 20px; display: none; color: #0dd;`;
-    loader.innerHTML = '⏳ Loading more ads...';
-    document.body.appendChild(loader);
-  }
-  loader.style.display = show ? 'block' : 'none';
-}
-
-function setupInfiniteScroll() {
-  let sentinel = document.getElementById('infinite-scroll-sentinel');
-  if (!sentinel) {
-    sentinel = document.createElement('div');
-    sentinel.id = 'infinite-scroll-sentinel';
-    document.body.appendChild(sentinel);
-  }
-
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting && hasMoreAds && !isLoadingMore) {
-        loadMoreAds();
-      }
-    });
-  }, { rootMargin: '100px' });
-
-  observer.observe(sentinel);
 }
 
 // ═══════════════════════════════════
@@ -1472,80 +1375,18 @@ async function deleteOneAd(id) {
 }
 
 // ═══════════════════════════════════
-// QUALITY FILTER (Hide 18+, romantic, no-thumbnail)
+// FAVORITES (ENHANCED)
 // ═══════════════════════════════════
-function isQualityAd(ad) {
-  // Filter ONLY haram/inappropriate content
-  if (!ad.tags) return true;
-  
-  const tags = Array.isArray(ad.tags) ? ad.tags : [];
-  
-  // ❌ Hide 18+ content
-  if (tags.includes('18+')) return false;
-  
-  // ❌ Hide romantic/dating content
-  if (tags.includes('romantic')) return false;
-  if (tags.includes('dating')) return false;
-  
-  // ❌ Hide ads without valid thumbnail (no design = no use!)
-  if (!ad.thumbnailUrl || ad.thumbnailUrl.trim() === '' || ad.thumbnailUrl.includes('placeholder')) {
-    return false;
-  }
-  
-  return true; // শুধু valid design সহ ads
-}
-
-// ═══════════════════════════════════
-// SESSION ID MANAGEMENT
-// ═══════════════════════════════════
-function getSessionId() {
-  let sessionId = localStorage.getItem('sessionId');
-  if (!sessionId) {
-    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('sessionId', sessionId);
-  }
-  return sessionId;
-}
-
-// ═══════════════════════════════════
-// FAVORITES (API-BASED PERSISTENCE)
-// ═══════════════════════════════════
-async function toggleFav(id, btn) {
-  try {
-    const sessionId = getSessionId();
-
-    const response = await fetch(`/api/favorites/toggle/${id}`, {
-      method: 'POST',
-      headers: {
-        'x-session-id': sessionId,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.action === 'removed') {
-      favs.delete(id);
-      if (btn) btn.textContent = '☆';
-      toast('Removed from favorites', 'ok');
-    } else if (data.action === 'added') {
-      favs.add(id);
-      if (btn) btn.textContent = '⭐';
-      toast('Added to favorites ⭐', 'ok');
-    }
-
-    setTxt('sb-fav', favs.size);
-    const favAds = ads.filter(a => favs.has(a.id));
-    renderGrid('fav-grid', favAds);
-    renderGrid('total-grid', getSortedFiltered());
-  } catch (err) {
-    console.error('Favorite error:', err);
-    toast('Failed to save favorite: ' + err.message, 'error');
-  }
+  // FAVORITES PERSISTENCE — SUPABASE
+const SUPABASE_URL = 'https://gvlhseeeqwyynkltad.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_qY3vxxBmiWCIFWt-GeRg_q_ImyS...';
+function toggleFav(id, btn) {
+  if(favs.has(id)) { favs.delete(id); if(btn) btn.textContent='☆'; toast('Removed from favorites','ok'); }
+  else { favs.add(id); if(btn) btn.textContent='⭐'; toast('Added to favorites ⭐','ok'); }
+  setTxt('sb-fav', favs.size);
+  const favAds = ads.filter(a=>favs.has(a.id));
+  renderGrid('fav-grid', favAds);
+  renderGrid('total-grid', getSortedFiltered());
 }
 
 function globalSearchFn() {
@@ -1960,72 +1801,6 @@ async function emailRecipeToSelf() {
     toast(`✅ Email sent to ${userEmail}`, 'ok');
   } catch(e) {
     toast('❌ Email failed', 'err');
-  }
-}
-
-// ─── LOAD FAVORITES FROM API ON PAGE LOAD ────────────────────────
-async function loadFavoritesFromAPI() {
-  try {
-    const sessionId = getSessionId();
-
-    const response = await fetch('/api/favorites', {
-      method: 'GET',
-      headers: {
-        'x-session-id': sessionId,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      console.warn('Failed to load favorites from API');
-      return;
-    }
-
-    const data = await response.json();
-    favs.clear();
-    if (data.favorites && Array.isArray(data.favorites)) {
-      data.favorites.forEach(id => favs.add(id));
-    }
-    
-    console.log('✅ Loaded ' + favs.size + ' favorites from database');
-    setTxt('sb-fav', favs.size);
-  } catch (err) {
-    console.error('Failed to load favorites:', err);
-  }
-}
-
-window.addEventListener('load', () => {
-  setTimeout(loadFavoritesFromAPI, 500);
-  loadFromDB();
-    setupInfiniteScroll();
-});
-
-// ─── LOAD ADS FROM DATABASE ON PAGE LOAD ────────────────────────
-async function loadAdsFromDatabase() {
-  try {
-    const response = await fetch('/api/ads/db');
-    
-    if (!response.ok) {
-      console.warn('Failed to load ads from database');
-      return;
-    }
-
-    const data = await response.json();
-    
-    if (data.ads && Array.isArray(data.ads)) {
-      // Apply quality filter
-      ads = data.ads.filter(isQualityAd);
-      console.log('✅ Loaded ' + ads.length + ' quality ads from database (filtered)');
-      
-      // Re-render grids with filtered ads
-      renderGrid('total-grid', getSortedFiltered());
-      renderGrid('fav-grid', ads.filter(a => favs.has(a.id)));
-      
-      // Update sidebar counts
-      setTxt('sb-total', ads.length);
-    }
-  } catch (err) {
-    console.error('Failed to load ads from database:', err);
   }
 }
 </script>
