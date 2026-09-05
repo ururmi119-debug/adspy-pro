@@ -1378,21 +1378,24 @@ async function deleteOneAd(id) {
 // QUALITY FILTER (Hide 18+, romantic, no-thumbnail)
 // ═══════════════════════════════════
 function isQualityAd(ad) {
-  // Skip ads with quality filter tags
+  // Filter ONLY haram/inappropriate content
   if (!ad.tags) return true;
   
   const tags = Array.isArray(ad.tags) ? ad.tags : [];
   
-  // Hide 18+ content
+  // ❌ Hide 18+ content
   if (tags.includes('18+')) return false;
   
-  // Hide romantic/dating content
+  // ❌ Hide romantic/dating content
   if (tags.includes('romantic')) return false;
+  if (tags.includes('dating')) return false;
   
-  // Hide ads without thumbnail
-  if (tags.includes('no-thumbnail')) return false;
+  // ❌ Hide ads without valid thumbnail (no design = no use!)
+  if (!ad.thumbnailUrl || ad.thumbnailUrl.trim() === '' || ad.thumbnailUrl.includes('placeholder')) {
+    return false;
+  }
   
-  return true;
+  return true; // শুধু valid design সহ ads
 }
 
 // ═══════════════════════════════════
