@@ -1375,7 +1375,7 @@ async function deleteOneAd(id) {
 }
 
 // ═══════════════════════════════════
-// QUALITY FILTER (Hide 18+, romantic only)
+// QUALITY FILTER (Hide 18+, romantic, no-thumbnail)
 // ═══════════════════════════════════
 function isQualityAd(ad) {
   // Skip ads with quality filter tags
@@ -1388,6 +1388,9 @@ function isQualityAd(ad) {
   
   // Hide romantic/dating content
   if (tags.includes('romantic')) return false;
+  
+  // Hide ads without thumbnail
+  if (tags.includes('no-thumbnail')) return false;
   
   return true;
 }
@@ -1639,34 +1642,25 @@ let tT; function toast(msg,type){const el=document.getElementById('toast');el.te
 // Init
 updateAll();
   async function toggleFav(id, btn) {
-  try {
-    const sessionId = getSessionId();
-    const response = await fetch(`/api/favorites/toggle/${id}`, {
-      method: 'POST',
-      headers: {
-        'x-session-id': sessionId,
-        'Content-Type': 'application/json'
-      }
-    });
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-    const data = await response.json();
-    if (data.action === 'removed') {
-      favs.delete(id);
-      if (btn) btn.textContent = '☆';
-      toast('Removed from favorites', 'ok');
-    } else if (data.action === 'added') {
-      favs.add(id);
-      if (btn) btn.textContent = '⭐';
-      toast('Added to favorites ⭐', 'ok');
-    }
-    setTxt('sb-fav', favs.size);
-    const favAds = ads.filter(a => favs.has(a.id));
-    renderGrid('fav-grid', favAds);
-    renderGrid('total-grid', getSortedFiltered());
-  } catch (err) {
-    console.error('Favorite error:', err);
-    toast('Failed to save favorite: ' + err.message, 'error');
+  const userId = getCurrentUserId();
+  
+  if(favs.has(id)) {
+    await removeFavoriteFromDB(userId, id);
+    favs.delete(id);
+    if(btn) btn.textContent = '☆';
+    toast('Removed from favorites', 'ok');
+  } else {
+    await addFavoriteTooDB(userId, id);
+    favs.add(id);
+    if(btn) btn.textContent = '⭐';
+    toast('Added to favorites ⭐', 'ok');
   }
+  
+  setTxt('sb-fav', favs.size);
+  const favAds = ads.filter(a => favs.has(a.id));
+  renderGrid('fav-grid', favAds);
+  renderGrid('total-grid', getSortedFiltered());
+}
   // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN RECIPE CARD SYSTEM — View + Copy (6 options)
 // ═══════════════════════════════════════════════════════════════════════════
