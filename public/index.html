@@ -1803,6 +1803,76 @@ async function emailRecipeToSelf() {
     toast('❌ Email failed', 'err');
   }
 }
+  
+async function loadMoreAds() {
+  if (!hasMoreAds || isLoadingMore) return;
+  
+  isLoadingMore = true;
+  showLoadingIndicator(true);
+
+  try {
+    const token = getAuthToken();
+    const response = await fetch(`/api/ads/db?status=active&offset=${currentOffset}&limit=${adsPerPage}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error('Failed to load more ads');
+
+    const data = await response.json();
+    
+    if (data.ads && Array.isArray(data.ads)) {
+      const qualityAds = data.ads.filter(isQualityAd);
+      allAds = allAds.concat(qualityAds);
+      
+      hasMoreAds = data.hasMore;
+      currentOffset = data.nextOffset;
+      
+      console.log(`✅ Loaded more ads. Total: ${allAds.length}/${data.totalCount}`);
+      renderGrid('total-grid', allAds);
+      setTxt('sb-total', allAds.length);
+      
+      if (!hasMoreAds) {
+        console.log('🎉 All ads loaded!');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load more ads:', err);
+  }
+
+  isLoadingMore = false;
+  showLoadingIndicator(false);
+}
+
+function showLoadingIndicator(show) {
+  let loader = document.getElementById('infinite-scroll-loader');
+  if (!loader) {
+    loader = document.createElement('div');
+    loader.id = 'infinite-scroll-loader';
+    loader.style.cssText = `text-align: center; padding: 20px; display: none; color: #0dd;`;
+    loader.innerHTML = '⏳ Loading more ads...';
+    document.body.appendChild(loader);
+  }
+  loader.style.display = show ? 'block' : 'none';
+}
+
+function setupInfiniteScroll() {
+  let sentinel = document.getElementById('infinite-scroll-sentinel');
+  if (!sentinel) {
+    sentinel = document.createElement('div');
+    sentinel.id = 'infinite-scroll-sentinel';
+    document.body.appendChild(sentinel);
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && hasMoreAds && !isLoadingMore) {
+        loadMoreAds();
+      }
+    });
+  }, { rootMargin: '100px' });
+
+  observer.observe(sentinel);
+}
 </script>
 </body>
 </html>
