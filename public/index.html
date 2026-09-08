@@ -257,6 +257,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
 .toast.err{border-color:rgba(239,68,68,.4);color:var(--hot)}
 
 /* ── FAVORITES ── */
+  <button class="button" style="background: #1E90FF; margin: 5px;" onclick="downloadImage()">💾 Save Image</button>
 .fav-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .fav-card{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px;cursor:pointer;transition:all .12s}
 .fav-card:hover{border-color:var(--acc)}
@@ -1872,6 +1873,10 @@ function setupInfiniteScroll() {
   }, { rootMargin: '100px' });
 
   observer.observe(sentinel);
+}
+  function downloadImage() {
+    localStorage.setItem('saved_images', JSON.stringify(allAds));
+    alert('✓ Image saved!');
 }
 </script>
 </body>
