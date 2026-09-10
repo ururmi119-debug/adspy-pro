@@ -13,9 +13,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.facebook.com/ads/library/*",
-        "https://facebook.com/ads/library/*",
-        "https://web.facebook.com/ads/library/*"
+        "https://adspy-pro-vc7w.onrender.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
