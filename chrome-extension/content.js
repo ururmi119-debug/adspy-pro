@@ -282,7 +282,7 @@ function makeBadge(phase, model, conf, days) {
   var color = getColor(phase);
   var emoji = getEmoji(phase);
   var daysText = days >= 0 ? ' · ' + days + 'd' : '';
-  return '<div class="adspy-badge-v2" style="position:absolute;top:6px;left:6px;z-index:2147483648;background:rgba(8,10,18,0.95);border:1px solid ' + color + '55;border-radius:8px;padding:6px 9px;min-width:120px;font-family:Arial,sans-serif;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.6);transform-origin:top left;">' +
+  return '<div class="adspy-badge-v2" style="position:absolute;top:6px;left:6px;z-index:2147483648;contain:layout;background:rgba(8,10,18,0.95);border:1px solid ' + color + '55;border-radius:8px;padding:6px 9px;min-width:120px;font-family:Arial,sans-serif;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.6);transform-origin:top left;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
     '<span style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase;">' + emoji + ' ' + phase + '</span>' +
     '<span style="font-size:9px;color:#64748b;margin-left:6px;">' + conf + '%</span>' +
