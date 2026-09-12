@@ -408,7 +408,7 @@ function makePanel() {
 
   var wrap = document.createElement('div');
   wrap.id = 'adspy-panel-v2';
-wrap.style.cssText = 'position:fixed;z-index:2147483647;background:rgba(10,10,10,0.96);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:12px 16px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;width:calc(100% - 24px);overflow-y:auto;max-height:calc(100vh - 40px);';
+wrap.style.cssText = 'position:fixed;z-index:2147483647;background:rgba(10,10,10,0.96);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:12px 16px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;width:calc(100% - 24px);overflow-y:auto;max-height:calc(100vh - 40px);contain:layout;';
 
   // Row 1: toolbar
   var row1 = document.createElement('div');
