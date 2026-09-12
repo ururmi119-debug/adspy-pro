@@ -282,7 +282,7 @@ function makeBadge(phase, model, conf, days) {
   var color = getColor(phase);
   var emoji = getEmoji(phase);
   var daysText = days >= 0 ? ' · ' + days + 'd' : '';
-  return '<div class="adspy-badge-v2" style="position:absolute;top:6px;left:6px;z-index:2147483648;contain:layout;background:rgba(8,10,18,0.95);border:1px solid ' + color + '55;border-radius:8px;padding:6px 9px;min-width:120px;font-family:Arial,sans-serif;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.6);transform-origin:top left;">' +
+  return '<div class="adspy-badge-v2" style="position:relative;top:auto;left:auto;z-index:2147483648;contain:layout;background:rgba(8,10,18,0.95);border:1px solid ' + color + '55;border-radius:8px;padding:6px 9px;min-width:120px;font-family:Arial,sans-serif;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.6);transform-origin:top left;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
     '<span style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase;">' + emoji + ' ' + phase + '</span>' +
     '<span style="font-size:9px;color:#64748b;margin-left:6px;">' + conf + '%</span>' +
@@ -410,6 +410,11 @@ function makePanel() {
   wrap.id = 'adspy-panel-v2';
 wrap.style.cssText = 'position:fixed;z-index:2147483647;background:rgba(10,10,10,0.96);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:12px 16px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;width:calc(100% - 24px);overflow-y:auto;max-height:calc(100vh - 40px);contain:layout;';
 
+  // Badge container (fixed top left)
+  var badgeContainer = document.createElement('div');
+  badgeContainer.id = 'adspy-badges-container';
+  badgeContainer.style.cssText = 'position:fixed;top:80px;left:10px;width:auto;z-index:2147483646;display:flex;flex-wrap:wrap;gap:8px;pointer-events:none;';
+  document.body.appendChild(badgeContainer);
   // Row 1: toolbar
   var row1 = document.createElement('div');
   row1.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
@@ -777,7 +782,7 @@ function processCard(card) {
   card.dataset.dups = dups;
 
   try {
-    card.insertAdjacentHTML('afterbegin', makeBadge(phase, model, conf, days));
+    var badgeHTML = makeBadge(phase, model, conf, days); var badgeContainer = document.getElementById('adspy-badges-container'); if(badgeContainer) {   var badgeDiv = document.createElement('div');   badgeDiv.innerHTML = badgeHTML;   badgeContainer.appendChild(badgeDiv.firstChild); }
   } catch(e) {}
 
   if(ADSPY_UI.galleryOn) { card.style.outline = '2px solid ' + getColor(phase); card.style.outlineOffset = '2px'; }
