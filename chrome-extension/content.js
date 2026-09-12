@@ -678,7 +678,7 @@ function clearData() {
   };
   for(var i=0;i<processed.length;i++) {
     var b = processed[i].querySelector('.adspy-badge-v2');
-    if(b) b.remove();
+   // if(b) b.remove();
     processed[i].style.display = '';
     processed[i].style.outline = '';
   }
