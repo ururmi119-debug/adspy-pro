@@ -73,11 +73,8 @@ function keywordHits(text, keywords) {
   return count;
 }
 
-var NON_POD_OVERRIDE_KEYWORDS = ['soap','lotion','cream','deodorant','skincare','serum','shampoo','conditioner','supplement','vitamin','capsule','tablet','probiotic','moisturizer','sunscreen','toothpaste','perfume','cologne'];
-
 function getModel(text) {
   var t = (text||'').toLowerCase();
-  if (keywordHits(t, NON_POD_OVERRIDE_KEYWORDS) > 0) return 'Unknown';
   var podStrongHits = keywordHits(t, ['tshirt','t-shirt','hoodie','mug','poster','shirt','pillow','hat','tumbler','sweatshirt','tank top','apparel','canvas','ornament','blanket']);
   var podWeakHits = keywordHits(t, ['print','custom','islamic','muslim','motivational','teacher','nurse','hijab','quran','mom','dad','dog','cat','faith','personalized','quote']);
   var scores = {
@@ -212,13 +209,11 @@ function isSkippableNameText(t) {
 }
 
 function parsePageName(card, fallbackText) {
-  // Most reliable: page name is the line directly above "Sponsored" in the card's text
-  var sponsoredMatch = getPageNameAboveSponsored(fallbackText);
-  if (sponsoredMatch) return sponsoredMatch;
-
   try {
     var candidates = card.querySelectorAll('span, strong, a, div');
     for (var i = 0; i < candidates.length; i++) {
+      // Skip container elements that themselves have element children —
+      // we only want "leaf" text nodes, not big wrapper divs.
       if (candidates[i].children && candidates[i].children.length > 0) continue;
       var t = (candidates[i].innerText || '').trim();
       if (t.length >= 2 && t.length <= 60 &&
@@ -233,39 +228,11 @@ function parsePageName(card, fallbackText) {
   return getFallbackPageName(fallbackText) || (fallbackText || 'Unknown Page').slice(0, 60);
 }
 
-function getPageNameAboveSponsored(text) {
-  try {
-    var lines = (text||'').split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
-    for (var i = 1; i < lines.length; i++) {
-      if (/^sponsored$/i.test(lines[i])) {
-        var candidate = lines[i-1];
-        if (candidate && candidate.length >= 2 && candidate.length <= 60 && !isSkippableNameText(candidate) && !/^\d+$/.test(candidate)) {
-          return candidate;
-        }
-      }
-    }
-  } catch(e) {}
-  return '';
-}
-
 function getFallbackPageName(text) {
   try {
     var lines = (text||'').split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
-
-    // Most reliable heuristic: on Meta Ad Library cards, the page/advertiser
-    // name is the line directly above the "Sponsored" label.
-    for (var i = 1; i < lines.length; i++) {
-      if (/^sponsored$/i.test(lines[i])) {
-        var candidate = lines[i-1];
-        if (candidate && candidate.length >= 2 && candidate.length <= 60 && !isSkippableNameText(candidate) && !/^\d+$/.test(candidate)) {
-          return candidate;
-        }
-      }
-    }
-
-    // Fallback: first line that isn't boilerplate/status text
-    for (var j = 0; j < lines.length; j++) {
-      var l = lines[j];
+    for (var i = 0; i < lines.length; i++) {
+      var l = lines[i];
       if (l.length >= 2 && l.length <= 60 &&
           l.indexOf('Started running') < 0 &&
           l.indexOf('Library ID') < 0 &&
@@ -282,7 +249,7 @@ function makeBadge(phase, model, conf, days) {
   var color = getColor(phase);
   var emoji = getEmoji(phase);
   var daysText = days >= 0 ? ' · ' + days + 'd' : '';
-  return '<div class="adspy-badge-v2" style="position:absolute;top:6px;left:6px;z-index:2147483648;contain:layout;background:rgba(8,10,18,0.95);border:1px solid ' + color + '55;border-radius:8px;padding:6px 9px;min-width:120px;font-family:Arial,sans-serif;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.6);transform-origin:top left;">' +
+  return '<div class="adspy-badge-v2" style="position:absolute;top:6px;left:6px;z-index:9999;background:rgba(8,10,18,0.95);border:1px solid ' + color + '55;border-radius:8px;padding:6px 9px;min-width:120px;font-family:Arial,sans-serif;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.6);transform-origin:top left;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
     '<span style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase;">' + emoji + ' ' + phase + '</span>' +
     '<span style="font-size:9px;color:#64748b;margin-left:6px;">' + conf + '%</span>' +
@@ -408,9 +375,8 @@ function makePanel() {
 
   var wrap = document.createElement('div');
   wrap.id = 'adspy-panel-v2';
-wrap.style.cssText = 'position:fixed;z-index:2147483647;background:rgba(10,10,10,0.96);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:12px 16px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;width:calc(100% - 24px);overflow-y:auto;max-height:calc(100vh - 40px);contain:layout;';
+  wrap.style.cssText = 'position:fixed;z-index:2147483647;background:rgba(10,10,10,0.96);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:12px 16px;font-family:Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.7);max-width:1100px;width:calc(100% - 24px);';
 
-  
   // Row 1: toolbar
   var row1 = document.createElement('div');
   row1.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
@@ -679,7 +645,7 @@ function clearData() {
   };
   for(var i=0;i<processed.length;i++) {
     var b = processed[i].querySelector('.adspy-badge-v2');
-   // if(b) b.remove();
+    if(b) b.remove();
     processed[i].style.display = '';
     processed[i].style.outline = '';
   }
@@ -778,7 +744,7 @@ function processCard(card) {
   card.dataset.dups = dups;
 
   try {
-   card.insertAdjacentHTML('afterbegin', makeBadge(phase, model, conf, days));
+    card.insertAdjacentHTML('afterbegin', makeBadge(phase, model, conf, days));
   } catch(e) {}
 
   if(ADSPY_UI.galleryOn) { card.style.outline = '2px solid ' + getColor(phase); card.style.outlineOffset = '2px'; }
