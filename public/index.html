@@ -1093,13 +1093,7 @@ function renderGrid(containerId, list, mode='normal', selectable=false) {
   }
   el.className = `ads-grid${mode==='large'?' lg':''}${mode==='list'?' list':''}`;
   el.innerHTML = list.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
-  el.innerHTML = list.map(a => mode='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
-// ← এখানে add করো ↓
-if(list && list.length > 0) {
-    localStorage.setItem('adradar_ads', JSON.stringify(list));
-    console.log('✓ Saved', list.length, 'ads');
-}
-return;
+
 }
 
 // ═══════════════════════════════════
