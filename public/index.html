@@ -1093,7 +1093,6 @@ function renderGrid(containerId, list, mode='normal', selectable=false) {
   }
   el.className = `ads-grid${mode==='large'?' lg':''}${mode==='list'?' list':''}`;
   el.innerHTML = list.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
-
 }
 
 // ═══════════════════════════════════
