@@ -845,13 +845,12 @@ async function fetchAds() {
     setApiSt('ok',`Connected · ${ads.length} ads`);
     updateAll();
     toast(`${d.ads.length} ads fetched!`,'ok');
+    saveAdsToStorage(ads);
   } catch(e) {
     setApiSt('err','Error');
     toast(e.message.slice(0,60),'err');
   }
 }
-
-function dedup(n){const ex=new Set(ads.map(a=>a.id));const blocked=new Set(getBlockedIds());return n.filter(a=>!ex.has(a.id) && !blocked.has(a.id));}
 
 // ═══════════════════════════════════
 // TAGS & BLOCK
