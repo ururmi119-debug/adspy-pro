@@ -842,10 +842,6 @@ async function fetchAds() {
     if(d.error) throw new Error(d.error);
     const newAds = dedup(d.ads||[]);
     ads = [...ads, ...newAds];
-    
-    // Save to localStorage
-    localStorage.setItem('adradar_ads', JSON.stringify(ads));
-    
     setApiSt('ok',`Connected · ${ads.length} ads`);
     updateAll();
     toast(`${d.ads.length} ads fetched!`,'ok');
@@ -854,6 +850,8 @@ async function fetchAds() {
     toast(e.message.slice(0,60),'err');
   }
 }
+
+function dedup(n){const ex=new Set(ads.map(a=>a.id));const blocked=new Set(getBlockedIds());return n.filter(a=>!ex.has(a.id) && !blocked.has(a.id));}
 
 // ═══════════════════════════════════
 // TAGS & BLOCK
@@ -1096,7 +1094,6 @@ function renderGrid(containerId, list, mode='normal', selectable=false) {
   el.className = `ads-grid${mode==='large'?' lg':''}${mode==='list'?' list':''}`;
   el.innerHTML = list.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
 }
- 
 
 // ═══════════════════════════════════
 // UPDATE ALL
