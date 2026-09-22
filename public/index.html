@@ -842,10 +842,13 @@ async function fetchAds() {
     if(d.error) throw new Error(d.error);
     const newAds = dedup(d.ads||[]);
     ads = [...ads, ...newAds];
+    
+    // Save to localStorage
+    localStorage.setItem('adradar_ads', JSON.stringify(ads));
+    
     setApiSt('ok',`Connected · ${ads.length} ads`);
     updateAll();
     toast(`${d.ads.length} ads fetched!`,'ok');
-    saveAdsToStorage(ads);
   } catch(e) {
     setApiSt('err','Error');
     toast(e.message.slice(0,60),'err');
