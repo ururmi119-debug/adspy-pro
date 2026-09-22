@@ -1093,41 +1093,7 @@ function renderGrid(containerId, list, mode='normal', selectable=false) {
   el.className = `ads-grid${mode==='large'?' lg':''}${mode==='list'?' list':''}`;
   el.innerHTML = list.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
 }
-  // Load saved ads from localStorage on page load
-function loadSavedAds() {
-    try {
-        const saved = localStorage.getItem('adradar_ads');
-        if(saved) {
-            const parsed = JSON.parse(saved);
-            if(Array.isArray(parsed) && parsed.length > 0) {
-                ads = parsed;
-                console.log('✓ Loaded', ads.length, 'ads from storage');
-                renderGrid('ads-grid', ads, 'normal', false);
-                return true;
-            }
-        }
-    } catch(e) {
-        console.log('Storage load failed:', e.message);
-    }
-    return false;
-}
-
-// Save ads to localStorage
-function saveAdsToStorage(list) {
-    if(list && list.length > 0) {
-        try {
-            localStorage.setItem('adradar_ads', JSON.stringify(list));
-            console.log('✓ Saved', list.length, 'ads to storage');
-        } catch(e) {
-            console.log('Storage save failed:', e.message);
-        }
-    }
-}
-
-// Load on page start
-window.addEventListener('load', () => {
-    loadSavedAds();
-});
+ 
 
 // ═══════════════════════════════════
 // UPDATE ALL
