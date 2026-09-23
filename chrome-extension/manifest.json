@@ -30,4 +30,8 @@
   "icons": {
     "48": "icon48.png"
   }
+  "icons": {
+  "48": "icon48.png",
+  "128": "favicon.ico"
+}
 }
