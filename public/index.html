@@ -1088,12 +1088,21 @@ function listCardHTML(a) {
 function renderGrid(containerId, list, mode='normal', selectable=false) {
   const el = document.getElementById(containerId);
   if (!el) return;
-  if (!list.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-ico">📭</div><h3>No ads found</h3><p>Load demo data or fetch from Meta.</p></div>`;
+  
+  // ✅ FILTER: Remove placeholder cards (no real thumbnails)
+  const filteredList = list.filter(a => 
+    a.thumbnailUrl && 
+    !a.thumbnailUrl.includes('placeholder') &&
+    !a.thumbnailUrl.includes('via.placeholder')
+  );
+  
+  if (!filteredList.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">🖼️</div><h3>No ads with thumbnails</h3><p>Only showing ads with real images.</p></div>`;
     return;
   }
+  
   el.className = `ads-grid${mode==='large'?' lg':''}${mode==='list'?' list':''}`;
-  el.innerHTML = list.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
+  el.innerHTML = filteredList.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
 }
 
 // ═══════════════════════════════════
