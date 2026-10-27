@@ -203,22 +203,46 @@ function parseThumbnail(card) {
 
 var SKIP_NAME_WORDS = ['active','inactive','sponsored','see ad details','see summary details','shop now','learn more','sign up','order now','see more','platforms'];
 
+function isSkippableNameText(t) {
+  var tLower = (t||'').toLowerCase().replace(/^[^a-z0-9]+/, '').trim();
+  return SKIP_NAME_WORDS.indexOf(tLower) >= 0;
+}
+
 function parsePageName(card, fallbackText) {
   try {
-    var candidates = card.querySelectorAll('span, strong, a');
+    var candidates = card.querySelectorAll('span, strong, a, div');
     for (var i = 0; i < candidates.length; i++) {
+      // Skip container elements that themselves have element children —
+      // we only want "leaf" text nodes, not big wrapper divs.
+      if (candidates[i].children && candidates[i].children.length > 0) continue;
       var t = (candidates[i].innerText || '').trim();
-      var tLower = t.toLowerCase().replace(/^[^a-z0-9]+/, '').trim();
       if (t.length >= 2 && t.length <= 60 &&
           t.indexOf('Started running') < 0 &&
           t.indexOf('Library ID') < 0 &&
           !/^\d+$/.test(t) &&
-          SKIP_NAME_WORDS.indexOf(tLower) < 0) {
+          !isSkippableNameText(t)) {
         return t;
       }
     }
   } catch(e) {}
-  return (fallbackText || 'Unknown Page').slice(0, 60);
+  return getFallbackPageName(fallbackText) || (fallbackText || 'Unknown Page').slice(0, 60);
+}
+
+function getFallbackPageName(text) {
+  try {
+    var lines = (text||'').split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
+    for (var i = 0; i < lines.length; i++) {
+      var l = lines[i];
+      if (l.length >= 2 && l.length <= 60 &&
+          l.indexOf('Started running') < 0 &&
+          l.indexOf('Library ID') < 0 &&
+          !/^\d+$/.test(l) &&
+          !isSkippableNameText(l)) {
+        return l;
+      }
+    }
+  } catch(e) {}
+  return '';
 }
 
 function makeBadge(phase, model, conf, days) {
@@ -709,7 +733,7 @@ function processCard(card) {
 
   var landingUrl = parseLandingUrl(card);
   var thumbnailUrl = parseThumbnail(card);
-  var pageName = parsePageName(card, text.split('\n')[0]);
+  var pageName = parsePageName(card, text);
   var shopify = isShopifyUrl(landingUrl);
   var multi = isMultiVersion(text) || dups >= 2;
 
