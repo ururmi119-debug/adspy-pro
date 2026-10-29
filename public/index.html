@@ -1090,10 +1090,14 @@ function renderGrid(containerId, list, mode='normal', selectable=false) {
   if (!el) return;
   
   // ✅ FILTER: Remove placeholder cards (no real thumbnails)
+  // Every ad that is allowed into the dashboard (all phases except Testing) is ALWAYS shown,
+  // even without an image (letter icon instead)
+  const STRONG_PHASES = ['HOT','Legend','Cash Cow','Scaling','Winning','Validating'];
   const filteredList = list.filter(a => 
-    a.thumbnailUrl && 
-    !a.thumbnailUrl.includes('placeholder') &&
-    !a.thumbnailUrl.includes('via.placeholder')
+    STRONG_PHASES.includes(a.phase) ||
+    (a.thumbnailUrl && 
+     !a.thumbnailUrl.includes('placeholder') &&
+     !a.thumbnailUrl.includes('via.placeholder'))
   );
   
   if (!filteredList.length) {
