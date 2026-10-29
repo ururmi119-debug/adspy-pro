@@ -158,11 +158,22 @@ const createAdsTableQuery = `
 
 const addTagsColumnQuery = `ALTER TABLE ads ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb;`;
 
+// Permanent copy of every ad image (Facebook's own image links expire after a few days)
+const createImagesTableQuery = `
+  CREATE TABLE IF NOT EXISTS ad_images (
+    id           TEXT PRIMARY KEY,
+    content_type TEXT,
+    data         BYTEA,
+    created_at   TIMESTAMP DEFAULT NOW()
+  );
+`;
+
 (async () => {
   try {
     await queryWithRetry(createAdsTableQuery);
     await queryWithRetry(addTagsColumnQuery);
-    console.log('✅ ads table is ready (tags column ensured)');
+    await queryWithRetry(createImagesTableQuery);
+    console.log('✅ ads table is ready (tags column ensured, ad_images table ensured)');
   } catch (err) {
     console.error('❌ Migration failed:', err.message);
   }
@@ -534,12 +545,60 @@ app.post('/api/login', async (req, res) => {
 function extractDomain(url) {
   if (!url) return null;
   try {
-    const u = new URL(url);
+    // The extension sends landing links without "https://" (e.g. "shop.com/products/x"),
+    // so add it before parsing. Without this the domain always came out NULL.
+    const withScheme = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+    const u = new URL(withScheme);
     return u.hostname.replace(/^www\./, '');
   } catch {
     return null;
   }
 }
+
+// ─── SAVE AD IMAGE PERMANENTLY ────────────────────────────────────────────
+const MAX_IMAGE_BYTES = 1500000; // skip anything bigger than ~1.5 MB
+
+async function saveAdImage(adId, url) {
+  if (!adId || !url || !/^https?:\/\//i.test(url)) return false;
+  try {
+    const exists = await pool.query('SELECT 1 FROM ad_images WHERE id = $1', [adId]);
+    if (exists.rowCount > 0) return true; // already saved
+
+    const resp = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+      maxContentLength: MAX_IMAGE_BYTES,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' }
+    });
+    const type = String(resp.headers['content-type'] || '').split(';')[0].trim();
+    if (!type.startsWith('image/')) return false;
+    const buf = Buffer.from(resp.data);
+    if (!buf.length || buf.length > MAX_IMAGE_BYTES) return false;
+
+    await pool.query(
+      'INSERT INTO ad_images (id, content_type, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
+      [adId, type, buf]
+    );
+    return true;
+  } catch (err) {
+    console.error('🖼️ Image save failed for', adId, ':', err.message);
+    return false;
+  }
+}
+
+// Serves the saved image. Public on purpose: <img> tags cannot send a login token.
+app.get('/api/img/:id', async (req, res) => {
+  try {
+    const r = await pool.query('SELECT content_type, data FROM ad_images WHERE id = $1', [req.params.id]);
+    if (!r.rowCount) return res.status(404).end();
+    res.set('Content-Type', r.rows[0].content_type || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(r.rows[0].data);
+  } catch (err) {
+    console.error('🖼️ Image serve error:', err.message);
+    res.status(500).end();
+  }
+});
 
 // ─── EXTENSION SYNC ENDPOINT ──────────────────────────────────────────────
 app.post('/api/extension/sync', authMiddleware, async (req, res) => {
@@ -565,6 +624,12 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
       $20, $21, NOW(), NOW()
     )
     ON CONFLICT (id) DO UPDATE SET
+      page_name         = COALESCE(EXCLUDED.page_name, ads.page_name),
+      page_id           = COALESCE(EXCLUDED.page_id, ads.page_id),
+      title             = COALESCE(EXCLUDED.title, ads.title),
+      landing_url       = COALESCE(EXCLUDED.landing_url, ads.landing_url),
+      advertiser_domain = COALESCE(EXCLUDED.advertiser_domain, ads.advertiser_domain),
+      thumbnail_url     = COALESCE(EXCLUDED.thumbnail_url, ads.thumbnail_url),
       running_days   = EXCLUDED.running_days,
       is_meta_active = EXCLUDED.is_meta_active,
       phase          = EXCLUDED.phase,
@@ -579,8 +644,14 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
 
   let synced = 0;
   let failed = 0;
+  let skipped = 0;
+
+  // Safety net: 'Testing' ads are never stored, even if an old extension version
+  // sends them. Every other phase is accepted.
+  const BLOCKED_SYNC_PHASES = ['Testing'];
 
   for (const ad of ads) {
+    if (BLOCKED_SYNC_PHASES.includes(ad.phase)) { skipped++; continue; }
     try {
       const advertiserDomain = extractDomain(ad.landingUrl);
       const titleValue = ad.title || ad.pageName || null;
@@ -618,8 +689,17 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
 
   backupToGoogleSheets(ads.map(a => ({ ...a, title: a.title || a.pageName }))).catch(() => {});
 
-  console.log(`✅ Sync complete: ${synced} synced, ${failed} failed. Sample ids: ${ads.slice(0,3).map(a=>a.id).join(', ')}`);
-  res.json({ synced, failed, total: ads.length });
+  console.log(`✅ Sync complete: ${synced} synced, ${failed} failed, ${skipped} skipped (Testing phase). Sample ids: ${ads.slice(0,3).map(a=>a.id).join(', ')}`);
+  res.json({ synced, failed, skipped, total: ads.length });
+
+  // Save the images AFTER replying, one at a time, so the extension never waits for downloads
+  (async () => {
+    let saved = 0;
+    for (const ad of ads) {
+      if (await saveAdImage(ad.id, ad.thumbnailUrl)) saved++;
+    }
+    console.log(`🖼️ Images saved permanently: ${saved}/${ads.length}`);
+  })();
 });
 
 // ─── AUTO-ARCHIVE ─────────────────────────────────────────────────────────
@@ -654,16 +734,18 @@ app.get('/api/ads/db', async (req, res) => {
     const params = [];
     if (statusFilter !== 'all') {
       params.push(statusFilter);
-      whereClauses.push(`status = $${params.length}`);
+      whereClauses.push(`a.status = $${params.length}`);
     }
     // ✅ FIX: Removed the strict thumbnail filter that was causing 0 results
     // Now accepts ads even without thumbnail (shows default placeholder)
     const whereClause = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
     const query = `
-      SELECT * FROM ads
+      SELECT a.*, (i.id IS NOT NULL) AS has_img
+      FROM ads a
+      LEFT JOIN ad_images i ON i.id = a.id
       ${whereClause}
-      ORDER BY last_seen_at DESC
+      ORDER BY a.last_seen_at DESC
       LIMIT 1000
     `;
 
@@ -677,7 +759,9 @@ app.get('/api/ads/db', async (req, res) => {
       title: r.title,
       landingUrl: r.landing_url,
       advertiserDomain: r.advertiser_domain,
-      thumbnailUrl: r.thumbnail_url || 'https://via.placeholder.com/300x300?text=No+Image',
+      thumbnailUrl: r.has_img
+        ? '/api/img/' + encodeURIComponent(r.id)
+        : (r.thumbnail_url || 'https://via.placeholder.com/300x300?text=No+Image'),
       creativeType: r.creative_type,
       runningDays: r.running_days,
       isActive: r.is_meta_active,
