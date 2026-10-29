@@ -1,7 +1,26 @@
-// AdRadar v5.2.1 - Full toolbar redesign: Scan/Filter/Compete/Large/Export/Gallery/Live/Auto + category & model chips
+// AdRadar v5.3.5 - Full toolbar redesign: Scan/Filter/Compete/Large/Export/Gallery/Live/Auto + category & model chips
 // FIX v5.2.1: use FB "Library ID" for unique ad IDs (prevents different ads from colliding into the same synced row)
 // UPDATE (Step 4): Content filtering — block 18+/adult ads, only show POD-relevant products
+// v5.3.0: (1) strict product filter: keep only ads that mention T-shirt / hoodie / sweatshirt / mug / canvas etc. in ad text or landing URL
+//         (2) page name parser no longer returns FB UI labels ("EU transparency", "Open Dropdown", "2 ads", ...)
+//         (3) page id + advertiser domain are now sent with every ad
+// v5.3.4: every phase EXCEPT 'Testing' is saved and sent to the dashboard (see SYNC_PHASES). Testing ads are not stored at all.
+// v5.3.5: (1) novel / e-book / reading-app ads are blocked; (2) thumbnails: only real ad images (200px or bigger) are captured,
+//         and a card is re-checked on the next scan if its image has not loaded yet (fixes blurry / tiny pictures on the dashboard)
+//         The ORDER of SYNC_PHASES is the priority: strongest ads are synced first and are the last to be dropped when local storage is full.
+//         (the phase is re-calculated on every scan, so an ad that grows stronger is picked up on a later scan).
+//         This also stops weak ads from filling the 500-ad local storage and pushing out strong ads that were not synced yet.
 var API_BASE = 'https://adspy-pro-vc7w.onrender.com';
+
+// Only ads in these phases are saved and sent to the dashboard. 'Testing' ads are left out on purpose.
+// Want to block a phase too (e.g. Validating)? Just delete it from this list.
+// ORDER = PRIORITY: first in the list = synced first (strongest ads go to the dashboard first).
+var SYNC_PHASES = ['HOT','Legend','Cash Cow','Scaling','Winning','Validating'];
+
+function phaseRank(phase) {
+  var i = SYNC_PHASES.indexOf(phase);
+  return i < 0 ? 99 : i;
+}
 
 var ADSPY = {
   total:0, hot:0, winning:0, pod:0,
@@ -24,6 +43,25 @@ function isAdultContent(text) {
     if (t.indexOf(ADULT_KEYWORDS[i]) >= 0) return true;
   }
   return false;
+}
+
+// ═══════════════════════════════════
+// PRODUCT FILTER (v5.3.0) — only keep ads for products Urmi's store can sell.
+// T-shirt family comes first. To add/remove a product, just edit these two lists.
+// ═══════════════════════════════════
+var TSHIRT_KEYWORDS = ['t-shirt','t shirt','tshirt','tee','tees','shirt','shirts','hoodie','hoodies','sweatshirt','sweatshirts','long sleeve','crewneck','tank top'];
+var OTHER_PRODUCT_KEYWORDS = ['mug','mugs','canvas','ornament','ornaments','pillow','tote bag','tumbler','blanket'];
+
+// Novel / e-book / reading-app ads — not our products. (A real T-shirt ad always wins over this list.)
+var BLOCK_KEYWORDS = ['novel','novels','webnovel','goodnovel','noveltime','dreame','ebook','e-book','audiobook','kindle','chapter','read now'];
+
+// Looks in the ad text AND the landing-page link (e.g. shop.com/products/duck-hunting-shirt)
+function getProductType(text, landingUrl) {
+  var combined = (text || '') + ' ' + (landingUrl || '');
+  if (keywordHits(combined, TSHIRT_KEYWORDS) > 0) return 'T-Shirt';
+  if (keywordHits(combined, BLOCK_KEYWORDS) > 0) return '';
+  if (keywordHits(combined, OTHER_PRODUCT_KEYWORDS) > 0) return 'Other';
+  return '';
 }
 
 // ═══════════════════════════════════
@@ -89,7 +127,7 @@ function getModel(text) {
   };
   var best = 'Unknown'; var bestScore = 0;
   for(var m in scores) { if(scores[m] > bestScore) { bestScore = scores[m]; best = m; } }
-  return best; // 'Unknown' means no strong product-category signal — gets filtered out downstream
+  return best; // 'Unknown' means no strong product-category signal
 }
 
 function getColor(phase) {
@@ -150,7 +188,7 @@ function parseLandingUrl(card) {
   return '';
 }
 
-// ── NEW: pull the unique Facebook "Library ID" shown on every Ad Library card ──
+// ── pull the unique Facebook "Library ID" shown on every Ad Library card ──
 function parseLibraryId(card) {
   try {
     var text = card.innerText || '';
@@ -167,11 +205,15 @@ function parseThumbnail(card) {
     for (var i = 0; i < imgs.length; i++) {
       var im = imgs[i];
       var src = im.currentSrc || im.src || '';
-
-      // Skip tiny/blurry base64 placeholders Facebook shows before the real image loads
       if (!src || src.indexOf('data:image') === 0) continue;
 
-      // If a srcset is present, pull out the highest-resolution URL listed
+      // v5.3.5: skip images that have not loaded yet and small ones
+      // (profile pictures, icons, blurry previews) — only the real ad creative is wanted.
+      var w = im.naturalWidth || 0;
+      var h = im.naturalHeight || 0;
+      if (w < 200 || h < 200) continue;
+
+      // If a srcset is present, use the highest-resolution URL listed
       var srcset = im.getAttribute('srcset');
       if (srcset) {
         var candidates = srcset.split(',').map(function(s){ return s.trim(); });
@@ -179,20 +221,14 @@ function parseThumbnail(card) {
         for (var c = 0; c < candidates.length; c++) {
           var parts = candidates[c].split(/\s+/);
           var url = parts[0];
-          var w = parseInt((parts[1]||'').replace('w',''), 10) || 0;
-          if (w > bestW) { bestW = w; bestCandidate = url; }
+          var cw = parseInt((parts[1]||'').replace('w',''), 10) || 0;
+          if (cw > bestW) { bestW = cw; bestCandidate = url; }
         }
         if (bestCandidate) src = bestCandidate;
       }
 
-      var w = im.naturalWidth || im.width || 0;
-      var h = im.naturalHeight || im.height || 0;
       var area = w * h;
-
-      // Prefer the largest actually-loaded image; if nothing loaded yet, still
-      // keep the first non-placeholder src as a fallback candidate
       if (area > bestArea) { bestArea = area; best = src; }
-      else if (!best) { best = src; }
     }
     if (best) return best;
     var video = card.querySelector('video');
@@ -201,14 +237,60 @@ function parseThumbnail(card) {
   return '';
 }
 
-var SKIP_NAME_WORDS = ['active','inactive','sponsored','see ad details','see summary details','shop now','learn more','sign up','order now','see more','platforms'];
+// ═══════════════════════════════════
+// PAGE NAME / PAGE ID PARSER (v5.3.0)
+// Facebook's own UI labels must never be saved as an advertiser name.
+// ═══════════════════════════════════
+var SKIP_NAME_WORDS = [
+  'active','inactive','sponsored','see ad details','see summary details','shop now','learn more','sign up','order now','see more','platforms',
+  'open dropdown','eu transparency','this ad has multiple versions','multiple versions','close','library id','started running',
+  'ad details','summary details','see all','about this ad','report ad','download now','get offer','book now','contact us'
+];
 
 function isSkippableNameText(t) {
-  var tLower = (t||'').toLowerCase().replace(/^[^a-z0-9]+/, '').trim();
-  return SKIP_NAME_WORDS.indexOf(tLower) >= 0;
+  var tLower = (t||'').toLowerCase().replace(/^[^a-z0-9~]+/, '').trim();
+  if (!tLower) return true;
+  if (SKIP_NAME_WORDS.indexOf(tLower) >= 0) return true;
+  if (/^\d+\s+ads?$/.test(tLower)) return true;            // "2 ads"
+  if (/^~?[\d,.]+\s+results?/.test(tLower)) return true;    // "~950 results"
+  if (tLower.indexOf('this ad ') === 0) return true;        // "This ad has multiple versions", "This ad is not active..."
+  if (tLower.indexOf('ads use this') >= 0) return true;
+  if (tLower.indexOf('library id') >= 0) return true;
+  if (tLower.indexOf('started running') >= 0) return true;
+  return false;
 }
 
-function parsePageName(card, fallbackText) {
+// Facebook paths that are NOT an advertiser's page
+var FB_NON_PAGE_PATHS = ['ads','help','policies','privacy','business','legal','about','login','l.php','settings','watch','groups','marketplace','pages','reg','recover','ad_library','login.php'];
+
+// Returns { name, id }. Tries the advertiser's page link first, then falls back to text scanning.
+function parsePageInfo(card, fallbackText) {
+  var name = '', id = '';
+  try {
+    var links = card.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var href = links[i].href || '';
+      var txt = (links[i].innerText || '').split('\n')[0].trim();
+      var vm = href.match(/view_all_page_id=(\d+)/);
+      var pm = href.match(/^https?:\/\/(?:www\.|web\.|m\.)?facebook\.com\/(?:profile\.php\?id=)?([A-Za-z0-9._\-]+)\/?(?:[?#].*)?$/);
+      var isPageLink = false;
+      if (vm) {
+        isPageLink = true;
+        if (!id) id = vm[1];
+      } else if (pm && FB_NON_PAGE_PATHS.indexOf(pm[1].toLowerCase()) < 0) {
+        isPageLink = true;
+        if (!id && /^\d{6,}$/.test(pm[1])) id = pm[1];
+      }
+      if (isPageLink && !name && txt.length >= 2 && txt.length <= 60 && !isSkippableNameText(txt)) name = txt;
+      if (name && id) break;
+    }
+  } catch(e) {}
+
+  if (!name) name = parsePageNameFromText(card, fallbackText);
+  return { name: name, id: id };
+}
+
+function parsePageNameFromText(card, fallbackText) {
   try {
     var candidates = card.querySelectorAll('span, strong, a, div');
     for (var i = 0; i < candidates.length; i++) {
@@ -225,7 +307,7 @@ function parsePageName(card, fallbackText) {
       }
     }
   } catch(e) {}
-  return getFallbackPageName(fallbackText) || (fallbackText || 'Unknown Page').slice(0, 60);
+  return getFallbackPageName(fallbackText) || 'Unknown Page';
 }
 
 function getFallbackPageName(text) {
@@ -383,7 +465,7 @@ function makePanel() {
 
   var brand = document.createElement('div');
   brand.style.cssText = 'font-size:13px;font-weight:800;color:#fff;margin-right:4px;white-space:nowrap;cursor:grab;padding:2px 4px;';
-  brand.innerHTML = '⠿ 🔍 Ad<span style="color:#3b82f6">Radar</span> <span style="font-size:9px;color:#475569;font-weight:400;">v5.2.1</span>';
+  brand.innerHTML = '⠿ 🔍 Ad<span style="color:#3b82f6">Radar</span> <span style="font-size:9px;color:#475569;font-weight:400;">v5.3.5</span>';
   brand.title = 'Drag to move · Click to open Dashboard';
   row1.appendChild(brand);
 
@@ -576,6 +658,8 @@ function selectModel(m) {
 function applyFilters() {
   for(var i=0;i<processed.length;i++) {
     var card = processed[i];
+    // Cards rejected by the content/product filter have no phase — keep them hidden
+    if (!card.dataset.phase) continue;
     var show = true;
     if(ADSPY_UI.filterOn && ADSPY_UI.category && ADSPY_UI.category !== 'All') {
       if(ADSPY_UI.category === 'Shopify') show = card.dataset.shopify === '1';
@@ -599,6 +683,7 @@ function toggleGallery() {
   ADSPY_UI.galleryOn = !ADSPY_UI.galleryOn;
   for(var i=0;i<processed.length;i++) {
     var card = processed[i];
+    if (!card.dataset.phase) continue;
     if(ADSPY_UI.galleryOn) {
       card.style.outline = '2px solid ' + getColor(card.dataset.phase);
       card.style.outlineOffset = '2px';
@@ -709,6 +794,17 @@ function processCard(card) {
     return;
   }
 
+  var landingUrl = parseLandingUrl(card);
+
+  // v5.3.0: keep only ads for products the store can sell (T-shirt family first).
+  // Checks the ad text AND the landing-page link.
+  var productType = getProductType(text, landingUrl);
+  if (!productType) {
+    card.style.display = 'none';
+    return;
+  }
+  var model = 'POD';
+
   var days = parseDays(text);
   var actualDays = days >= 0 ? days : 0;
 
@@ -721,19 +817,24 @@ function processCard(card) {
   var nicheScore = calcNicheQuality(text);
   var score = calcScore(actualDays, dups, countries, nicheScore);
   var phase = getPhase(score, actualDays, dups, countries);
-  var model = getModel(text);
-
-  // Step 4: only keep POD-relevant ads (T-shirt / mug / pillow / hoodie etc.)
-  if (model !== 'POD') {
-    card.style.display = 'none';
-    return;
-  }
 
   var conf = Math.round(Math.min(score/100, 1)*100);
 
-  var landingUrl = parseLandingUrl(card);
   var thumbnailUrl = parseThumbnail(card);
-  var pageName = parsePageName(card, text);
+  if (!thumbnailUrl) {
+    // The real ad image has not finished loading yet — look at this card again on the next scan (up to 6 tries)
+    var imgTries = parseInt(card.dataset.imgTries || '0', 10) + 1;
+    card.dataset.imgTries = String(imgTries);
+    if (imgTries < 6) {
+      var pi = processed.indexOf(card);
+      if (pi >= 0) processed.splice(pi, 1);
+      return;
+    }
+  }
+  var pageInfo = parsePageInfo(card, text);
+  var pageName = pageInfo.name;
+  var pageId = pageInfo.id;
+  var advertiserDomain = landingUrl ? landingUrl.split('/')[0] : '';
   var shopify = isShopifyUrl(landingUrl);
   var multi = isMultiVersion(text) || dups >= 2;
 
@@ -762,6 +863,9 @@ function processCard(card) {
   var libraryId = parseLibraryId(card);
   var adId = makeAdId(pageName, text, landingUrl, libraryId);
 
+  // v5.3.3: Testing ads are never saved or synced
+  if (SYNC_PHASES.indexOf(phase) < 0) { applyFilters(); return; }
+
   try {
     chrome.storage.local.get('adsData', function(r) {
       var saved = r.adsData || [];
@@ -774,8 +878,11 @@ function processCard(card) {
         days: actualDays,
         runningDays: actualDays,
         pageName: pageName,
+        pageId: pageId,
         title: pageName,
         landingUrl: landingUrl,
+        advertiserDomain: advertiserDomain,
+        productType: productType,
         text: text.slice(0,150),
         adText: text.slice(0,300),
         pageUrl: window.location.href,
@@ -800,7 +907,19 @@ function processCard(card) {
       } else {
         saved.push(record);
       }
-      if(saved.length > 500) saved = saved.slice(-500);
+      // Local storage holds 500 ads. When full, drop the WEAKEST first (and oldest within the same phase),
+      // so strong ads that are not synced yet are never pushed out by weaker ones.
+      if (saved.length > 500) {
+        saved = saved
+          .map(function(a, idx) { return { a: a, idx: idx }; })
+          .sort(function(x, y) {
+            var d = phaseRank(x.a.phase) - phaseRank(y.a.phase);
+            return d !== 0 ? d : (y.idx - x.idx);
+          })
+          .slice(0, 500)
+          .sort(function(x, y) { return x.idx - y.idx; })
+          .map(function(o) { return o.a; });
+      }
       chrome.storage.local.set({adsData: saved});
     });
   } catch(e) {}
@@ -821,13 +940,15 @@ function syncToServer(callback) {
     var syncedSet = {};
     for (var i = 0; i < syncedIds.length; i++) syncedSet[syncedIds[i]] = true;
 
-    var pending = allAds.filter(function(a) { return a.id && !syncedSet[a.id]; });
+    var pending = allAds.filter(function(a) { return a.id && !syncedSet[a.id] && SYNC_PHASES.indexOf(a.phase) >= 0; });
     if (!pending.length) {
-      console.log('[AdRadar] Nothing to sync — all', allAds.length, 'stored ads already marked synced.');
+      console.log('[AdRadar] Nothing to sync — none of the', allAds.length, 'stored ads are in a sync phase (' + SYNC_PHASES.join(', ') + ') or not already synced.');
       if (callback) callback(true);
       return;
     }
 
+    // Strongest ads first (Scaling goes before Validating), so they reach the dashboard first
+    pending.sort(function(a, b) { return phaseRank(a.phase) - phaseRank(b.phase); });
     var batch = pending.slice(0, 50);
     console.log('[AdRadar] Syncing', batch.length, 'ads to server...');
 
