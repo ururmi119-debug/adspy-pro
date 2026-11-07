@@ -746,7 +746,7 @@ app.get('/api/ads/db', async (req, res) => {
       LEFT JOIN ad_images i ON i.id = a.id
       ${whereClause}
       ORDER BY a.last_seen_at DESC
-      LIMIT 1000
+      LIMIT 10000
     `;
 
     // ✅ FIX: Use queryWithRetry to handle Render cold start
