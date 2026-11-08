@@ -602,6 +602,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
         <div class="bk-card" onclick="exportCSV()"><div class="bk-ico">📊</div><div class="bk-title">Export CSV</div><div class="bk-sub">All ads as spreadsheet</div></div>
         <div class="bk-card" onclick="exportJSON()"><div class="bk-ico">{ }</div><div class="bk-title">Export JSON</div><div class="bk-sub">Raw data format</div></div>
         <div class="bk-card" onclick="exportExcel()"><div class="bk-ico">📑</div><div class="bk-title">Export Excel</div><div class="bk-sub">Excel compatible</div></div>
+                <div class="bk-card" onclick="downloadAllImages()"><div class="bk-ico">🖼️</div><div class="bk-title">Download All Images</div><div class="bk-sub">ZIP: niche folders + CSV</div></div>
         <div class="bk-card"><div class="bk-ico">☁️</div><div class="bk-title">Cloud Backup</div><div class="bk-sub">Coming soon</div></div>
         <div class="bk-card" onclick="clearAll()"><div class="bk-ico">🗑</div><div class="bk-title">Clear All Data</div><div class="bk-sub">Remove all collected ads</div></div>
         <div class="bk-card"><div class="bk-ico">📥</div><div class="bk-title">Restore Data</div><div class="bk-sub">Import from backup</div></div>
@@ -1594,7 +1595,15 @@ function setApiSt(t,txt){const d=document.getElementById('api-dot');const l=docu
 function setTxt(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
 function setHTML(id,v){const el=document.getElementById(id);if(el)el.innerHTML=v;}
 let tT; function toast(msg,type){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+(type||'');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),3000);}
-
+// ═══════════════════════════════════
+// DOWNLOAD ALL IMAGES (ZIP)
+// ═══════════════════════════════════
+function downloadAllImages() {
+  const token = getAuthToken();
+  if (!token) { toast('Please login first', 'err'); return; }
+  toast('ZIP তৈরি হচ্ছে... ট্যাব বন্ধ কোরো না', 'ok');
+  window.location.href = '/api/images/download-all?token=' + encodeURIComponent(token);
+}
 // Init
 updateAll();
   async function toggleFav(id, btn) {
