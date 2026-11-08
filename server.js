@@ -919,7 +919,91 @@ app.delete('/api/favorites/:adId', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete favorite' });
   }
 });
+// ─── DOWNLOAD ALL SAVED IMAGES AS ONE ZIP (folder per niche + CSV) ────────
+const archiver = require('archiver');
 
+function csvCell(v) {
+  const s = String(v ?? '').replace(/\r?\n/g, ' ');
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+function nicheFolder(tags) {
+  const first = Array.isArray(tags) && tags.length ? String(tags[0]) : 'Untagged';
+  return first.trim().replace(/[^\p{L}\p{N}_-]+/gu, '_').slice(0, 50) || 'Untagged';
+}
+
+app.get('/api/images/download-all', async (req, res) => {
+  const token = req.query.token;
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+
+  try {
+    const list = await queryWithRetry(`
+      SELECT i.id, i.content_type,
+             a.page_name, a.title, a.landing_url, a.phase, a.running_days, a.tags
+      FROM ad_images i
+      LEFT JOIN ads a ON a.id = i.id
+      ORDER BY i.created_at DESC
+    `);
+    if (!list.rowCount) return res.status(404).json({ error: 'No saved images found' });
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="adradar-images.zip"');
+
+    const archive = archiver('zip', { zlib: { level: 0 } });
+    archive.on('error', (err) => {
+      console.error('ZIP error:', err.message);
+      res.end();
+    });
+    archive.pipe(res);
+
+    const header = ['file_name', 'niche', 'all_tags', 'ad_id', 'page_name', 'title', 'landing_url', 'phase', 'running_days'];
+    const folderCsv = {};
+    const allCsv = [header.map(csvCell).join(',')];
+
+    let added = 0;
+    for (const row of list.rows) {
+      const r = await pool.query('SELECT data FROM ad_images WHERE id = $1', [row.id]);
+      if (!r.rowCount || !r.rows[0].data) continue;
+
+      const type = row.content_type || 'image/jpeg';
+      const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : type.includes('gif') ? 'gif' : 'jpg';
+      const safeName = String(row.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = safeName + '.' + ext;
+      const folder = nicheFolder(row.tags);
+
+      archive.append(r.rows[0].data, { name: folder + '/' + fileName });
+
+      const line = [
+        fileName, folder,
+        Array.isArray(row.tags) ? row.tags.join(' | ') : '',
+        row.id, row.page_name, row.title,
+        row.landing_url, row.phase, row.running_days
+      ].map(csvCell).join(',');
+
+      if (!folderCsv[folder]) folderCsv[folder] = [header.map(csvCell).join(',')];
+      folderCsv[folder].push(line);
+      allCsv.push(line);
+      added++;
+    }
+
+    for (const [folder, lines] of Object.entries(folderCsv)) {
+      archive.append('\uFEFF' + lines.join('\r\n'), { name: folder + '/details.csv' });
+    }
+    archive.append('\uFEFF' + allCsv.join('\r\n'), { name: 'all-details.csv' });
+
+    await archive.finalize();
+    console.log('📦 ZIP download finished: ' + added + ' images in ' + Object.keys(folderCsv).length + ' niche folders');
+  } catch (err) {
+    console.error('ZIP download error:', err.message);
+    if (!res.headersSent) res.status(500).json({ error: 'Failed to build ZIP' });
+    else res.end();
+  }
+});
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', version: '5.1.8-FIXED', engine: 'Advanced AI v2', time: new Date().toISOString() });
 });
