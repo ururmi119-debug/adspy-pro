@@ -1415,10 +1415,9 @@ function toggleFav(id, btn) {
 let globalSearchQuery = '';
 
 function globalSearchFn() {
-  globalSearchQuery = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
-  renderGrid('total-grid', getSortedFiltered());
-  renderGrid('dash-grid', getSortedFiltered().slice(0, 8));
-  if (globalSearchQuery) toast(getSortedFiltered().length + ' ads found', 'ok');
+  const q = document.getElementById('globalSearch').value.toLowerCase();
+  const filtered = !q ? ads : ads.filter(a=>(a.pageName+' '+a.adText+' '+a.landingUrl+' '+a.model+' '+a.phase).toLowerCase().includes(q));
+  renderGrid('dash-grid', filtered.slice(0,8));
 }
 
 // ═══════════════════════════════════
