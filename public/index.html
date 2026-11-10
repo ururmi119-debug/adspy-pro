@@ -1188,7 +1188,7 @@ function updateAll() {
 
 function getSortedFiltered() {
   let f = [...ads];
-    if (globalSearchQuery) {
+  if (globalSearchQuery) {
     const words = globalSearchQuery.split(/\s+/).filter(Boolean);
     f = f.filter(a => {
       const hay = ((a.pageName||'') + ' ' + (a.title||'') + ' ' + (a.adText||'') + ' ' + (a.landingUrl||'') + ' ' + (a.advertiserDomain||'') + ' ' + (a.model||'') + ' ' + (a.phase||'') + ' ' + ((a.tags||[]).join(' '))).toLowerCase();
