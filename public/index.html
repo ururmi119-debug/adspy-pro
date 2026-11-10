@@ -1188,6 +1188,13 @@ function updateAll() {
 
 function getSortedFiltered() {
   let f = [...ads];
+    if (globalSearchQuery) {
+    const words = globalSearchQuery.split(/\s+/).filter(Boolean);
+    f = f.filter(a => {
+      const hay = ((a.pageName||'') + ' ' + (a.title||'') + ' ' + (a.adText||'') + ' ' + (a.landingUrl||'') + ' ' + (a.advertiserDomain||'') + ' ' + (a.model||'') + ' ' + (a.phase||'') + ' ' + ((a.tags||[]).join(' '))).toLowerCase();
+      return words.every(w => hay.includes(w));
+    });
+  }
   if(currentPhaseFilter !== 'all') f = f.filter(a=>a.phase===currentPhaseFilter);
   if(currentModelFilter !== 'all') f = f.filter(a=>a.model===currentModelFilter);
   if(currentQuickFilter === 'active') f = f.filter(a=>a.isActive);
@@ -1405,10 +1412,13 @@ function toggleFav(id, btn) {
   renderGrid('total-grid', getSortedFiltered());
 }
 
+let globalSearchQuery = '';
+
 function globalSearchFn() {
-  const q = document.getElementById('globalSearch').value.toLowerCase();
-  const filtered = !q ? ads : ads.filter(a=>(a.pageName+' '+a.adText+' '+a.landingUrl+' '+a.model+' '+a.phase).toLowerCase().includes(q));
-  renderGrid('dash-grid', filtered.slice(0,8));
+  globalSearchQuery = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
+  renderGrid('total-grid', getSortedFiltered());
+  renderGrid('dash-grid', getSortedFiltered().slice(0, 8));
+  if (globalSearchQuery) toast(getSortedFiltered().length + ' ads found', 'ok');
 }
 
 // ═══════════════════════════════════
