@@ -662,7 +662,22 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
         </div>
       </div>
     </div>
-
+    <!-- ── SEARCH RESULTS ── -->
+    <div class="page" id="page-results">
+      <div class="grid-header">
+        <div class="grid-title" id="results-title">Results</div>
+        <div class="grid-controls">
+          <select id="results-sort" class="filter-select" onchange="runSmartSearch()">
+            <option value="relevance">Best match</option>
+            <option value="newest">Newest collected</option>
+            <option value="score">Highest score</option>
+            <option value="days">Running longest</option>
+          </select>
+          <button class="gc-btn" onclick="closeSearchResults()">✕ Clear</button>
+        </div>
+      </div>
+      <div class="ads-grid" id="results-grid"></div>
+    </div>
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -1184,6 +1199,7 @@ function updateAll() {
   setTxt('sbm-SubBox', ads.filter(a=>a.model==='Sub Box').length);
 
   buildDomainTable();
+    afterUpdateSearch();
 }
 
 function getSortedFiltered() {
@@ -1414,10 +1430,130 @@ function toggleFav(id, btn) {
 
 let globalSearchQuery = '';
 
+// ═══════════════════════════════════
+// SMART SEARCH (YouTube-style)
+// ═══════════════════════════════════
+let searchResults = [];
+let searchPrevPage = 'dashboard';
+let searchTimer = null;
+let searchRestored = false;
+
+function normText(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// edit distance, stops early when it goes above max
+function editDist(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = [];
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      const c = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + c);
+      if (cur[j] < rowMin) rowMin = cur[j];
+    }
+    if (rowMin > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+function wordScore(qw, words) {
+  let best = 0;
+  for (const w of words) {
+    if (w === qw) return 10;
+    if (w.startsWith(qw)) { best = Math.max(best, 8); continue; }
+    if (qw.length >= 3 && w.includes(qw)) { best = Math.max(best, 6); continue; }
+    if (qw.length >= 4 && best < 4) {
+      const max = qw.length >= 8 ? 2 : 1;
+      const d = Math.min(editDist(qw, w, max), editDist(qw, w.slice(0, qw.length), max));
+      if (d <= max) best = 4;
+    }
+  }
+  return best;
+}
+
+function adSearchIndex(a) {
+  if (!a._si) {
+    const uniq = arr => [...new Set(arr)];
+    a._si = {
+      main: uniq(normText((a.pageName || '') + ' ' + (a.title || '') + ' ' + ((a.tags || []).join(' '))).split(' ').filter(Boolean)),
+      text: uniq(normText((a.adText || '') + ' ' + (a.advertiserDomain || '') + ' ' + (a.landingUrl || '')).split(' ').filter(Boolean))
+    };
+  }
+  return a._si;
+}
+
+function smartScore(a, qws) {
+  const idx = adSearchIndex(a);
+  let total = 0;
+  for (const qw of qws) {
+    const s = Math.max(wordScore(qw, idx.main) * 2, wordScore(qw, idx.text));
+    if (s === 0) return 0;   // every word must match something
+    total += s;
+  }
+  return total;
+}
+
 function globalSearchFn() {
-  const q = document.getElementById('globalSearch').value.toLowerCase();
-  const filtered = !q ? ads : ads.filter(a=>(a.pageName+' '+a.adText+' '+a.landingUrl+' '+a.model+' '+a.phase).toLowerCase().includes(q));
-  renderGrid('dash-grid', filtered.slice(0,8));
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(runSmartSearch, 200);
+}
+
+function runSmartSearch() {
+  const q = normText(document.getElementById('globalSearch').value);
+  if (!q) { closeSearchResults(); return; }
+  const cur = document.querySelector('.page.on');
+  if (cur && cur.id !== 'page-results') searchPrevPage = cur.id.replace('page-', '');
+
+  const qws = q.split(' ');
+  let list = ads.map(a => ({ a, s: smartScore(a, qws) })).filter(x => x.s > 0);
+  const sort = document.getElementById('results-sort').value;
+  if (sort === 'newest') list.sort((x, y) => new Date(y.a.firstSeenAt || 0) - new Date(x.a.firstSeenAt || 0));
+  else if (sort === 'score') list.sort((x, y) => (y.a.score || 0) - (x.a.score || 0));
+  else if (sort === 'days') list.sort((x, y) => (y.a.runningDays || 0) - (x.a.runningDays || 0));
+  else list.sort((x, y) => y.s - x.s || (y.a.score || 0) - (x.a.score || 0));
+  searchResults = list.map(x => x.a);
+
+  navToPage('results');
+  document.getElementById('pageTitle').textContent = 'Search';
+  document.getElementById('results-title').textContent = '"' + document.getElementById('globalSearch').value.trim() + '" — ' + searchResults.length + ' results';
+  const grid = document.getElementById('results-grid');
+  if (!searchResults.length) {
+    grid.className = 'ads-grid';
+    grid.innerHTML = '<div class="empty"><div class="empty-ico">🔍</div><h3>No results</h3><p>Try a shorter or different word, like "dog" or "mom".</p></div>';
+  } else {
+    renderGrid('results-grid', searchResults);
+  }
+  history.replaceState(null, '', '#search=' + encodeURIComponent(document.getElementById('globalSearch').value.trim()));
+}
+
+function closeSearchResults() {
+  document.getElementById('globalSearch').value = '';
+  searchResults = [];
+  history.replaceState(null, '', location.pathname);
+  if (document.getElementById('page-results').classList.contains('on')) {
+    const el = document.querySelector('.sb-item[data-page="' + searchPrevPage + '"]') || document.querySelector('.sb-item[data-page="dashboard"]');
+    nav(el);
+  }
+}
+
+// runs after every data refresh: restores search after reload, keeps results fresh
+function afterUpdateSearch() {
+  if (!searchRestored && ads.length) {
+    searchRestored = true;
+    const m = location.hash.match(/^#search=(.*)$/);
+    if (m) {
+      document.getElementById('globalSearch').value = decodeURIComponent(m[1]);
+      runSmartSearch();
+    }
+  } else if (document.getElementById('page-results').classList.contains('on')) {
+    runSmartSearch();
+  }
 }
 
 // ═══════════════════════════════════
@@ -1440,6 +1576,7 @@ function getActiveList() {
     case 'page-gridview': return ads;
     case 'page-listview': return ads;
     case 'page-select': return ads;
+          case 'page-results': return searchResults;
     default: return ads;
   }
 }
