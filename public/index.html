@@ -486,6 +486,15 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
           <option value="all">All Ads</option>
           <option value="favorites">Favorites Only ⭐</option>
         </select>
+                <select id="collectedFilter" class="filter-select" onchange="applyCollectedFilter()">
+          <option value="all">Collected: Any time</option>
+          <option value="today">Collected: Today</option>
+          <option value="yesterday">Collected: Yesterday</option>
+          <option value="7">Collected: Last 7 days</option>
+          <option value="30">Collected: Last 30 days</option>
+          <option value="pick">Collected: Pick a date…</option>
+        </select>
+        <input type="date" id="collectedDate" class="filter-select" style="display:none" onchange="applyCollectedFilter()">
         <div class="fb-sep"></div>
         <button class="fb-tag" onclick="resetDateFilters()">Reset Filters</button>
       </div>
@@ -749,6 +758,7 @@ let currentNicheFilter = 'all', currentAgeRangeFilter = 'all', currentCreativesF
 
 // DATE FILTERS (NEW)
 let currentWeekFilter = 'all', currentMonthFilter = 'all', currentYearFilter = 'all', currentFavFilter = 'all';
+  let currentCollectedFilter = 'all', currentCollectedDate = '';
 
 const NICHE_KEYWORDS = {
   Profession: ['teacher','nurse','firefighter','police','veteran','military','doctor','engineer','trucker','farmer'],
@@ -1009,10 +1019,43 @@ function resetDateFilters() {
   currentMonthFilter = 'all';
   currentYearFilter = 'all';
   currentFavFilter = 'all';
+    document.getElementById('collectedFilter').value = 'all';
+  document.getElementById('collectedDate').value = '';
+  document.getElementById('collectedDate').style.display = 'none';
+  currentCollectedFilter = 'all';
+  currentCollectedDate = '';
   renderGrid('total-grid', getSortedFiltered());
   toast('Filters reset','ok');
 }
+function localDayKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 
+function applyCollectedFilter() {
+  currentCollectedFilter = document.getElementById('collectedFilter').value;
+  const di = document.getElementById('collectedDate');
+  di.style.display = currentCollectedFilter === 'pick' ? '' : 'none';
+  currentCollectedDate = di.value;
+  renderGrid('total-grid', getSortedFiltered());
+  toast(getSortedFiltered().length + ' ads', 'ok');
+}
+
+function matchesCollected(a) {
+  if (currentCollectedFilter === 'all') return true;
+  if (!a.firstSeenAt) return false;
+  const d = new Date(a.firstSeenAt);
+  if (isNaN(d)) return false;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = Math.round((today - dayStart) / 86400000);
+  if (currentCollectedFilter === 'today') return diff === 0;
+  if (currentCollectedFilter === 'yesterday') return diff === 1;
+  if (currentCollectedFilter === '7') return diff >= 0 && diff <= 6;
+  if (currentCollectedFilter === '30') return diff >= 0 && diff <= 29;
+  if (currentCollectedFilter === 'pick') return currentCollectedDate ? localDayKey(d) === currentCollectedDate : true;
+  return true;
+}
 function filterByDateRange(ad) {
   if(currentWeekFilter !== 'all') {
     const days = parseInt(currentWeekFilter);
@@ -1211,6 +1254,7 @@ function getSortedFiltered() {
       return words.every(w => hay.includes(w));
     });
   }
+    if (currentCollectedFilter !== 'all') f = f.filter(matchesCollected);
   if(currentPhaseFilter !== 'all') f = f.filter(a=>a.phase===currentPhaseFilter);
   if(currentModelFilter !== 'all') f = f.filter(a=>a.model===currentModelFilter);
   if(currentQuickFilter === 'active') f = f.filter(a=>a.isActive);
