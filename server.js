@@ -157,6 +157,7 @@ const createAdsTableQuery = `
 `;
 
 const addTagsColumnQuery = `ALTER TABLE ads ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb;`;
+const addDeletedColumnQuery = `ALTER TABLE ads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;`;
 
 // Permanent copy of every ad image (Facebook's own image links expire after a few days)
 const createImagesTableQuery = `
@@ -171,6 +172,7 @@ const createImagesTableQuery = `
 (async () => {
   try {
     await queryWithRetry(createAdsTableQuery);
+        await queryWithRetry(addDeletedColumnQuery);
     await queryWithRetry(addTagsColumnQuery);
     await queryWithRetry(createImagesTableQuery);
     console.log('✅ ads table is ready (tags column ensured, ad_images table ensured)');
