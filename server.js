@@ -641,7 +641,7 @@ app.post('/api/extension/sync', authMiddleware, async (req, res) => {
       last_seen_at   = NOW(),
       status         = 'active',
       archived_at    = NULL
-    WHERE ads.status = 'archived' OR ads.id = EXCLUDED.id;
+  WHERE ads.deleted_at IS NULL AND (ads.status = 'archived' OR ads.id = EXCLUDED.id);
   `;
 
   let synced = 0;
@@ -732,7 +732,7 @@ app.get('/api/ads/db', async (req, res) => {
   try {
     const statusFilter = req.query.status || 'active';
 
-    let whereClauses = [];
+  let whereClauses = ['a.deleted_at IS NULL']; 
     const params = [];
     if (statusFilter !== 'all') {
       params.push(statusFilter);
@@ -825,7 +825,7 @@ app.delete('/api/ads/db', authMiddleware, async (req, res) => {
     if (!ids.length) return res.status(400).json({ error: 'No ids provided' });
 
     // ✅ FIX: Use queryWithRetry for deletes
-    const result = await queryWithRetry('DELETE FROM ads WHERE id = ANY($1::text[])', [ids]);
+   const result = await queryWithRetry('UPDATE ads SET deleted_at = NOW() WHERE id = ANY($1::text[]) AND deleted_at IS NULL', [ids]);
     res.json({ deleted: result.rowCount, ids });
   } catch (err) {
     console.error('DB delete error:', err.message);
@@ -836,13 +836,79 @@ app.delete('/api/ads/db', authMiddleware, async (req, res) => {
 app.delete('/api/ads/db/:id', authMiddleware, async (req, res) => {
   try {
     // ✅ FIX: Use queryWithRetry for single ad delete
-    const result = await queryWithRetry('DELETE FROM ads WHERE id = $1', [req.params.id]);
+   const result = await queryWithRetry('UPDATE ads SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     res.json({ deleted: result.rowCount, id: req.params.id });
   } catch (err) {
     console.error('DB delete error:', err.message);
     res.status(500).json({ error: 'Failed to delete ad' });
   }
 });
+
+// ── RECYCLE BIN ──────────────────────────────────────────
+app.get('/api/bin', authMiddleware, async (req, res) => {
+  try {
+    const result = await queryWithRetry(`
+      SELECT a.*, (i.id IS NOT NULL) AS has_img
+      FROM ads a
+      LEFT JOIN ad_images i ON i.id = a.id
+      WHERE a.deleted_at IS NOT NULL
+      ORDER BY a.deleted_at DESC
+      LIMIT 10000
+    `);
+    res.json({ ads: result.rows, count: result.rowCount });
+  } catch (err) {
+    console.error('Bin list error:', err.message);
+    res.status(500).json({ error: 'Failed to load recycle bin' });
+  }
+});
+
+app.post('/api/bin/restore', authMiddleware, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    if (!ids.length) return res.status(400).json({ error: 'No ids provided' });
+    const result = await queryWithRetry('UPDATE ads SET deleted_at = NULL WHERE id = ANY($1::text[]) AND deleted_at IS NOT NULL', [ids]);
+    res.json({ restored: result.rowCount });
+  } catch (err) {
+    console.error('Bin restore error:', err.message);
+    res.status(500).json({ error: 'Failed to restore ads' });
+  }
+});
+
+app.delete('/api/bin/forever', authMiddleware, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    if (!ids.length) return res.status(400).json({ error: 'No ids provided' });
+    await queryWithRetry('DELETE FROM ad_images WHERE id = ANY($1::text[]) AND id IN (SELECT id FROM ads WHERE deleted_at IS NOT NULL)', [ids]);
+    const result = await queryWithRetry('DELETE FROM ads WHERE id = ANY($1::text[]) AND deleted_at IS NOT NULL', [ids]);
+    res.json({ deleted: result.rowCount });
+  } catch (err) {
+    console.error('Bin delete forever error:', err.message);
+    res.status(500).json({ error: 'Failed to delete ads forever' });
+  }
+});
+
+app.delete('/api/bin/all', authMiddleware, async (req, res) => {
+  try {
+    await queryWithRetry('DELETE FROM ad_images WHERE id IN (SELECT id FROM ads WHERE deleted_at IS NOT NULL)');
+    const result = await queryWithRetry('DELETE FROM ads WHERE deleted_at IS NOT NULL');
+    res.json({ deleted: result.rowCount });
+  } catch (err) {
+    console.error('Empty bin error:', err.message);
+    res.status(500).json({ error: 'Failed to empty recycle bin' });
+  }
+});
+
+async function purgeOldBin() {
+  try {
+    await queryWithRetry("DELETE FROM ad_images WHERE id IN (SELECT id FROM ads WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days')");
+    const result = await queryWithRetry("DELETE FROM ads WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'");
+    if (result.rowCount > 0) console.log('Bin auto purge removed', result.rowCount, 'ads');
+  } catch (err) {
+    console.error('Bin auto purge error:', err.message);
+  }
+}
+setTimeout(purgeOldBin, 60 * 1000);
+setInterval(purgeOldBin, 24 * 60 * 60 * 1000);
 
 // ─── FAVORITES ────────────────────────────────────────────────────────────
 app.get('/api/favorites', async (req, res) => {
@@ -948,7 +1014,7 @@ app.get('/api/images/download-all', async (req, res) => {
       SELECT i.id, i.content_type,
              a.page_name, a.title, a.landing_url, a.phase, a.running_days, a.tags
       FROM ad_images i
-      LEFT JOIN ads a ON a.id = i.id
+  INNER JOIN ads a ON a.id = i.id AND a.deleted_at IS NULL
       ORDER BY i.created_at DESC
     `);
     if (!list.rowCount) return res.status(404).json({ error: 'No saved images found' });
