@@ -371,6 +371,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
   <div class="sb-item" data-page="favorites" onclick="nav(this)"><span class="ico">⭐</span>Favorites<span class="sb-cnt" id="sb-fav">0</span></div>
   <div class="sb-item" data-page="dupes" onclick="nav(this)"><span class="ico">🔁</span>Dupes</div>
   <div class="sb-item" data-page="batches" onclick="nav(this)"><span class="ico">⚡</span>Batches</div>
+      <div class="sb-item" data-page="bin" onclick="nav(this)"><span class="ico">🗑️</span>Recycle Bin<span class="sb-cnt" id="sb-bin">0</span></div>
 
   <div class="sb-sec">Views</div>
   <div class="sb-item" data-page="gridview" onclick="nav(this)"><span class="ico">⊞</span>Grid View</div>
@@ -603,6 +604,19 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
         <div class="fb-tag" onclick="">Old Campaigns</div>
       </div>
       <div class="ads-grid" id="archive-grid"></div>
+    </div>
+    
+    <!-- ── RECYCLE BIN ── -->
+    <div class="page" id="page-bin">
+      <div class="grid-header"><div class="grid-title">Recycle Bin 🗑️</div></div>
+      <div id="bin-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px 0">
+        <span style="font-size:12px;opacity:.7">Deleted ads stay here for 30 days, then they are removed forever.</span>
+        <button class="fb-tag" onclick="binRestoreAll()">↩ Restore All</button>
+        <button class="fb-tag" onclick="binEmpty()">Empty Bin</button>
+      </div>
+      <div class="ads-grid" id="bin-grid">
+        <div class="empty"><div class="empty-ico">🗑️</div><h3>Recycle Bin is empty</h3><p>Deleted ads will appear here.</p></div>
+      </div>
     </div>
 
     <!-- ── FAVORITES ── -->
@@ -1800,8 +1814,9 @@ function nav(el) {
   const page = el.dataset.page;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.getElementById('page-'+page)?.classList.add('on');
-  document.getElementById('pageTitle').textContent = pageTitles[page]||page;
+  document.getElementById('pageTitle').textContent = pageTitles[page]||(page==='bin'?'Recycle Bin':page);
   updateAll();
+  if(page==='bin' && typeof loadBin==='function') loadBin();
 }
 
 // ═══════════════════════════════════
