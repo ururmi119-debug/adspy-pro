@@ -396,6 +396,18 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
       <button class="tb-btn" onclick="loadDemo()">📥 Load Demo</button>
       <button class="tb-btn" onclick="loadFromDB()">🗄️ Synced Ads</button>
       <button class="tb-btn prim" onclick="nav(document.querySelector('[data-page=search]'))">+ Fetch Ads</button>
+            <div class="sel-wrap" id="selWrap">
+        <button class="tb-btn" id="selBtn" onclick="document.getElementById('selWrap').classList.toggle('open')">☑ Select (0)</button>
+        <div class="sel-menu">
+          <div class="sel-menu-in">
+            <div class="sel-count" id="selCountTxt">0 selected</div>
+            <div class="sel-item" onclick="selectAllVisible()">☑ Select All Visible</div>
+            <div class="sel-item" onclick="clearSelection()">✗ Clear Selection</div>
+            <div class="sel-item dis" title="Coming soon">⬇ Download Selected (soon)</div>
+            <div class="sel-item danger" onclick="deleteSelectedFromMenu()">🗑 Delete Selected</div>
+          </div>
+        </div>
+      </div>
       <div class="notif">🔔<div class="notif-dot"></div></div>
     </div>
   </div>
@@ -1101,9 +1113,10 @@ function cardHTML(a, mode='normal', selectable=false) {
   const placeholder = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,${gradColors[gradIdx]});font-family:'Space Mono',monospace;font-size:34px;font-weight:700;color:rgba(255,255,255,.85)">${initial}${typeIco?`<span style="position:absolute;bottom:8px;right:8px;font-size:16px;opacity:.85">${typeIco}</span>`:''}</div>`;
   const imgContent = a.thumbnailUrl ? `<img src="${a.thumbnailUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,${gradColors[gradIdx]});font-family:'Space Mono',monospace;font-size:34px;font-weight:700;color:rgba(255,255,255,.85)">${initial}</div>` : placeholder;
   const selCheck = selectable ? `<div style="position:absolute;top:8px;left:8px;width:18px;height:18px;border-radius:4px;background:${isSel?'var(--acc)':'rgba(0,0,0,.5)'};border:1.5px solid ${isSel?'var(--acc)':'rgba(255,255,255,.3)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff" onclick="event.stopPropagation();toggleSelect('${a.id}')">${isSel?'✓':''}</div>` : '';
-  return `<div class="ad-card" onclick="${selectable?`toggleSelect('${a.id}')`:`openMod('${a.id}')`}">
+    return `<div class="ad-card${selectedIds.has(a.id)?' picked':''}" data-id="${a.id}" onclick="${selectable?`toggleSelect('${a.id}')`:`openMod('${a.id}')`}">
     <div class="${imgH}">${imgContent}
       ${selectable ? selCheck : `<div class="phase-b" style="background:${pc}22;color:${pc};border:1px solid ${pc}44">${a.phase}</div>`}
+            ${selectable ? '' : `<div class="sel-chk${selectedIds.has(a.id)?' on':''}" onclick="event.stopPropagation();togglePick('${a.id}')">${selectedIds.has(a.id)?'✓':''}</div>`}
       <div class="model-b">${a.model}</div>
       <div class="conf-b">${a.confidence||0}%</div>
       <div class="score-line" style="width:${Math.min((a.score||0),100)}%"></div>
@@ -1178,6 +1191,7 @@ function renderGrid(containerId, list, mode='normal', selectable=false) {
   
   el.className = `ads-grid${mode==='large'?' lg':''}${mode==='list'?' list':''}`;
   el.innerHTML = filteredList.map(a => mode==='list' ? listCardHTML(a) : cardHTML(a, mode, selectable)).join('');
+    updateSelUI();
 }
 
 // ═══════════════════════════════════
@@ -1798,6 +1812,75 @@ function setTxt(id,v){const el=document.getElementById(id);if(el)el.textContent=
 function setHTML(id,v){const el=document.getElementById(id);if(el)el.innerHTML=v;}
 let tT; function toast(msg,type){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+(type||'');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),3000);}
 // ═══════════════════════════════════
+// SELECT MENU (header)
+// ═══════════════════════════════════
+function currentVisibleAds() {
+  const on = document.querySelector('.page.on');
+  const id = on ? on.id : '';
+  if (id === 'page-results') return searchResults;
+  if (id === 'page-totalads') return getSortedFiltered();
+  return getSortedFiltered();
+}
+
+function updateSelUI() {
+  const n = selectedIds.size;
+  const b = document.getElementById('selBtn');
+  const t = document.getElementById('selCountTxt');
+  if (b) b.textContent = '☑ Select (' + n + ')';
+  if (t) t.textContent = n + ' selected';
+  document.querySelectorAll('.ad-card[data-id]').forEach(c => {
+    const on = selectedIds.has(c.dataset.id);
+    c.classList.toggle('picked', on);
+    const k = c.querySelector('.sel-chk');
+    if (k) { k.classList.toggle('on', on); k.textContent = on ? '✓' : ''; }
+  });
+}
+
+function togglePick(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+  updateSelUI();
+}
+
+function selectAllVisible() {
+  currentVisibleAds().forEach(a => selectedIds.add(a.id));
+  updateSelUI();
+  toast(selectedIds.size + ' selected', 'ok');
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  updateSelUI();
+  toast('Selection cleared', 'ok');
+}
+
+async function deleteSelectedFromMenu() {
+  const n = selectedIds.size;
+  if (!n) { toast('Select some ads first!', 'err'); return; }
+  if (!confirm(n + ' ads will be deleted PERMANENTLY. Continue?')) return;
+  const ids = [...selectedIds];
+  const realIds = ids.filter(id => !String(id).startsWith('demo_'));
+  if (realIds.length) {
+    try {
+      const r = await fetch('/api/ads/db', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAuthToken() },
+        body: JSON.stringify({ ids: realIds })
+      });
+      if (!r.ok) throw new Error('Delete failed');
+    } catch (e) { toast('Server delete failed', 'err'); return; }
+  }
+  ads = ads.filter(a => !selectedIds.has(a.id));
+  selectedIds.clear();
+  updateAll();
+  toast(n + ' ads deleted', 'ok');
+}
+
+// close the menu when clicking elsewhere (for touch screens)
+document.addEventListener('click', e => {
+  const w = document.getElementById('selWrap');
+  if (w && !w.contains(e.target)) w.classList.remove('open');
+});
+  // ═══════════════════════════════════
 // DOWNLOAD ALL IMAGES (ZIP)
 // ═══════════════════════════════════
 function downloadAllImages() {
