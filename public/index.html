@@ -1476,11 +1476,11 @@ async function deleteSelected() {
   ads=ads.filter(a=>!selectedIds.has(a.id));
   selectedIds.clear();
   updateAll();
-  toast('Deleted!','ok');
+  toast('Moved to Recycle Bin','ok');
 }
 
 async function deleteOneAd(id) {
-  if(!confirm('Delete this ad?')) return;
+if(!confirm('Move this ad to the Recycle Bin?')) return;
   if(!String(id).startsWith('demo_')) {
     try {
       const r = await fetch('/api/ads/db/' + encodeURIComponent(id), {
@@ -1494,7 +1494,7 @@ async function deleteOneAd(id) {
   favs.delete(id);
   selectedIds.delete(id);
   updateAll();
-  toast('Ad deleted','ok');
+ toast('Moved to Recycle Bin','ok');
 }
 
 // ═══════════════════════════════════
@@ -1790,7 +1790,7 @@ function exportData(data, fmt) {
 function dl(blob,name){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
 
 async function clearAll(){
-  if(!confirm('Clear all ads?'))return;
+    if(!confirm('Move ALL ads to the Recycle Bin? You can restore them from the Recycle Bin for 30 days.'))return;
   const realIds = ads.filter(a=>!String(a.id).startsWith('demo_')).map(a=>a.id);
   if(realIds.length) {
     try {
@@ -1801,7 +1801,7 @@ async function clearAll(){
       });
     } catch(e) {}
   }
-  ads=[];favs.clear();selectedIds.clear();updateAll();toast('Cleared!','ok');
+   ads=[];favs.clear();selectedIds.clear();updateAll();toast('All ads moved to Recycle Bin','ok');
 }
 
 // ═══════════════════════════════════
@@ -1817,6 +1817,87 @@ function nav(el) {
   document.getElementById('pageTitle').textContent = pageTitles[page]||(page==='bin'?'Recycle Bin':page);
   updateAll();
   if(page==='bin' && typeof loadBin==='function') loadBin();
+}
+
+  // ── RECYCLE BIN ──────────────────────────────────────────
+let binAds = [];
+function binEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function binHeaders(){ return { 'Content-Type':'application/json', 'Authorization':'Bearer '+getAuthToken() }; }
+function binEmptyHTML(msg){ return '<div class="empty"><div class="empty-ico">🗑️</div><h3>'+binEsc(msg)+'</h3><p>Deleted ads will appear here.</p></div>'; }
+
+async function loadBin(){
+  const grid = document.getElementById('bin-grid');
+  if(!grid) return;
+  try{
+    const r = await fetch('/api/bin', { headers: binHeaders() });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data = await r.json();
+    binAds = data.ads || [];
+    renderBin();
+  }catch(e){
+    grid.innerHTML = '<div class="empty"><h3>Could not load Recycle Bin</h3><p>'+binEsc(e.message)+'</p></div>';
+  }
+}
+
+function renderBin(){
+  const grid = document.getElementById('bin-grid');
+  const cnt = document.getElementById('sb-bin');
+  if(cnt) cnt.textContent = binAds.length;
+  if(!grid) return;
+  if(!binAds.length){ grid.innerHTML = binEmptyHTML('Recycle Bin is empty'); return; }
+  grid.innerHTML = binAds.map(a=>{
+    const img = a.has_img ? '<img src="/api/img/'+encodeURIComponent(a.id)+'" style="width:100%;height:170px;object-fit:cover;border-radius:8px;background:#111" loading="lazy">' : '<div style="width:100%;height:170px;border-radius:8px;background:#111;display:flex;align-items:center;justify-content:center;opacity:.5">No image</div>';
+    const del = a.deleted_at ? new Date(a.deleted_at) : null;
+    const daysLeft = del ? Math.max(0, 30 - Math.floor((Date.now()-del.getTime())/86400000)) : 30;
+    return '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px">'
+      + img
+      + '<div style="font-weight:600;font-size:13px">'+binEsc(a.page_name||'Unknown page')+'</div>'
+      + '<div style="font-size:12px;opacity:.75;max-height:34px;overflow:hidden">'+binEsc(a.title||a.ad_text||'')+'</div>'
+      + '<div style="font-size:11px;opacity:.6">'+daysLeft+' days left before permanent delete</div>'
+      + '<div style="display:flex;gap:8px">'
+      + '<button class="fb-tag" data-id="'+binEsc(a.id)+'" onclick="binRestore(this.dataset.id)">↩ Restore</button>'
+      + '<button class="fb-tag" data-id="'+binEsc(a.id)+'" onclick="binDeleteForever(this.dataset.id)">Delete Forever</button>'
+      + '</div></div>';
+  }).join('');
+}
+
+async function binRestoreIds(ids){
+  const r = await fetch('/api/bin/restore', { method:'POST', headers: binHeaders(), body: JSON.stringify({ ids }) });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  binAds = binAds.filter(a=>!ids.includes(a.id));
+  renderBin();
+  if(typeof loadFromDB==='function') loadFromDB(true);
+}
+
+async function binRestore(id){
+  try{ await binRestoreIds([id]); }catch(e){ alert('Restore failed: '+e.message); }
+}
+
+async function binRestoreAll(){
+  if(!binAds.length) return;
+  if(!confirm('Restore all '+binAds.length+' ads from the Recycle Bin?')) return;
+  try{ await binRestoreIds(binAds.map(a=>a.id)); }catch(e){ alert('Restore failed: '+e.message); }
+}
+
+async function binDeleteForever(id){
+  if(!confirm('Delete this ad forever? This cannot be undone.')) return;
+  try{
+    const r = await fetch('/api/bin/forever', { method:'DELETE', headers: binHeaders(), body: JSON.stringify({ ids:[id] }) });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    binAds = binAds.filter(a=>a.id!==id);
+    renderBin();
+  }catch(e){ alert('Delete failed: '+e.message); }
+}
+
+async function binEmpty(){
+  if(!binAds.length) return;
+  if(!confirm('Delete all '+binAds.length+' ads in the Recycle Bin forever? This cannot be undone.')) return;
+  try{
+    const r = await fetch('/api/bin/all', { method:'DELETE', headers: binHeaders() });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    binAds = [];
+    renderBin();
+  }catch(e){ alert('Empty bin failed: '+e.message); }
 }
 
 // ═══════════════════════════════════
@@ -1871,7 +1952,7 @@ function clearSelection() {
 async function deleteSelectedFromMenu() {
   const n = selectedIds.size;
   if (!n) { toast('Select some ads first!', 'err'); return; }
-  if (!confirm(n + ' ads will be deleted PERMANENTLY. Continue?')) return;
+if (!confirm(n + ' ads will be moved to the Recycle Bin. Continue?')) return;
   const ids = [...selectedIds];
   const realIds = ids.filter(id => !String(id).startsWith('demo_'));
   if (realIds.length) {
@@ -1887,7 +1968,7 @@ async function deleteSelectedFromMenu() {
   ads = ads.filter(a => !selectedIds.has(a.id));
   selectedIds.clear();
   updateAll();
-  toast(n + ' ads deleted', 'ok');
+  toast(n + ' ads moved to Recycle Bin', 'ok');
 }
 
 // close the menu when clicking elsewhere (for touch screens)
