@@ -1040,7 +1040,8 @@ app.get('/api/images/download-all', async (req, res) => {
 
       const type = row.content_type || 'image/jpeg';
       const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : type.includes('gif') ? 'gif' : 'jpg';
-      const safeName = String(row.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const nameBase = [row.page_name, row.title].filter(Boolean).join('_').replace(/[^\p{L}\p{N}_-]+/gu, '_').replace(/^_+|_+$/g, '').slice(0, 80);
+      const safeName = (nameBase ? nameBase + '_' : '') + String(row.id).replace(/[^a-zA-Z0-9_-]/g, '_');
       const fileName = safeName + '.' + ext;
       const folder = nicheFolder(row.tags);
 
