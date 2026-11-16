@@ -169,12 +169,15 @@ const createImagesTableQuery = `
   );
 `;
 
+const addDownloadedColumnQuery = `ALTER TABLE ad_images ADD COLUMN IF NOT EXISTS downloaded_at TIMESTAMP;`;
+
 (async () => {
   try {
     await queryWithRetry(createAdsTableQuery);
         await queryWithRetry(addDeletedColumnQuery);
     await queryWithRetry(addTagsColumnQuery);
     await queryWithRetry(createImagesTableQuery);
+        await queryWithRetry(addDownloadedColumnQuery);
     console.log('✅ ads table is ready (tags column ensured, ad_images table ensured)');
   } catch (err) {
     console.error('❌ Migration failed:', err.message);
@@ -1010,13 +1013,21 @@ app.get('/api/images/download-all', async (req, res) => {
   }
 
   try {
-    const list = await queryWithRetry(`
-      SELECT i.id, i.content_type,
-             a.page_name, a.title, a.landing_url, a.phase, a.running_days, a.tags
-      FROM ad_images i
-  INNER JOIN ads a ON a.id = i.id AND a.deleted_at IS NULL
-      ORDER BY i.created_at DESC
-    `);
+          const idsParam = String(req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean);
+      const onlyNew = req.query.onlyNew === '1';
+      const filters = ['a.deleted_at IS NULL'];
+      const qParams = [];
+      if (idsParam.length) { qParams.push(idsParam); filters.push('i.id = ANY($' + qParams.length + '::text[])'); }
+      if (onlyNew) filters.push('i.downloaded_at IS NULL');
+
+      const list = await queryWithRetry(`
+        SELECT i.id, i.content_type,
+               a.page_name, a.title, a.landing_url, a.phase, a.running_days, a.tags
+        FROM ad_images i
+        INNER JOIN ads a ON a.id = i.id
+        WHERE ${filters.join(' AND ')}
+        ORDER BY i.created_at DESC
+      `, qParams); 
     if (!list.rowCount) return res.status(404).json({ error: 'No saved images found' });
 
     res.setHeader('Content-Type', 'application/zip');
@@ -1066,6 +1077,9 @@ app.get('/api/images/download-all', async (req, res) => {
     archive.append('\uFEFF' + allCsv.join('\r\n'), { name: 'all-details.csv' });
 
     await archive.finalize();
+          try {
+        await pool.query('UPDATE ad_images SET downloaded_at = NOW() WHERE id = ANY($1::text[])', [list.rows.map(r => r.id)]);
+      } catch (e) { console.error('downloaded_at update error:', e.message); }
     console.log('📦 ZIP download finished: ' + added + ' images in ' + Object.keys(folderCsv).length + ' niche folders');
   } catch (err) {
     console.error('ZIP download error:', err.message);
