@@ -404,7 +404,8 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
             <div class="sel-count" id="selCountTxt">0 selected</div>
             <div class="sel-item" onclick="selectAllVisible()">☑ Select All Visible</div>
             <div class="sel-item" onclick="clearSelection()">✗ Clear Selection</div>
-            <div class="sel-item dis" title="Coming soon">⬇ Download Selected (soon)</div>
+            <div class="sel-item" onclick="downloadSelectedImages()">⬇ Download Selected</div>
+            <div class="sel-item" onclick="downloadNewImages()">⬇ Download New Images</div>
             <div class="sel-item danger" onclick="deleteSelectedFromMenu()">🗑 Delete Selected</div>
           </div>
         </div>
@@ -650,6 +651,7 @@ body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;displ
         <div class="bk-card" onclick="exportJSON()"><div class="bk-ico">{ }</div><div class="bk-title">Export JSON</div><div class="bk-sub">Raw data format</div></div>
         <div class="bk-card" onclick="exportExcel()"><div class="bk-ico">📑</div><div class="bk-title">Export Excel</div><div class="bk-sub">Excel compatible</div></div>
                 <div class="bk-card" onclick="downloadAllImages()"><div class="bk-ico">🖼️</div><div class="bk-title">Download All Images</div><div class="bk-sub">ZIP: niche folders + CSV</div></div>
+              <div class="bk-card" onclick="downloadNewImages()"><div class="bk-ico">🆕</div><div class="bk-title">Download New Images</div><div class="bk-sub">Only images not downloaded before</div></div>
         <div class="bk-card"><div class="bk-ico">☁️</div><div class="bk-title">Cloud Backup</div><div class="bk-sub">Coming soon</div></div>
         <div class="bk-card" onclick="clearAll()"><div class="bk-ico">🗑</div><div class="bk-title">Clear All Data</div><div class="bk-sub">Remove all collected ads</div></div>
         <div class="bk-card"><div class="bk-ico">📥</div><div class="bk-title">Restore Data</div><div class="bk-sub">Import from backup</div></div>
@@ -1984,6 +1986,31 @@ function downloadAllImages() {
   if (!token) { toast('Please login first', 'err'); return; }
   toast('ZIP তৈরি হচ্ছে... ট্যাব বন্ধ কোরো না', 'ok');
   window.location.href = '/api/images/download-all?token=' + encodeURIComponent(token);
+}
+
+  async function zipPreflightAndDownload(query, label) {
+  const token = getAuthToken();
+  if (!token) { toast('Please login first', 'err'); return; }
+  const base = '/api/images/download-all?' + query + '&token=' + encodeURIComponent(token);
+  try {
+    const r = await fetch(base + '&count=1');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (!d.count) { toast('No ' + label + ' images found', 'err'); return; }
+    toast(d.count + ' images - ZIP তৈরি হচ্ছে, ট্যাব বন্ধ কোরো না', 'ok');
+    window.location.href = base;
+  } catch (e) { toast('Download failed: ' + e.message, 'err'); }
+}
+
+function downloadNewImages() {
+  zipPreflightAndDownload('onlyNew=1', 'new');
+}
+
+function downloadSelectedImages() {
+  const ids = [...selectedIds].filter(id => !String(id).startsWith('demo_'));
+  if (!ids.length) { toast('Select some ads first!', 'err'); return; }
+  if (ids.length > 500) { toast('একসাথে সর্বোচ্চ ৫০০টি ad নামানো যাবে', 'err'); return; }
+  zipPreflightAndDownload('ids=' + encodeURIComponent(ids.join(',')), 'selected');
 }
 // Init
 updateAll();
