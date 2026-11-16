@@ -1028,6 +1028,7 @@ app.get('/api/images/download-all', async (req, res) => {
         WHERE ${filters.join(' AND ')}
         ORDER BY i.created_at DESC
       `, qParams); 
+          if (req.query.count === '1') return res.json({ count: list.rowCount });
     if (!list.rowCount) return res.status(404).json({ error: 'No saved images found' });
 
     res.setHeader('Content-Type', 'application/zip');
